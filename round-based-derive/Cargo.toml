@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Proc-macro for deriving `round-based` traits"
-repository = "https://github.com/ZenGo-X/round-based-protocol"
+repository = "https://github.com/dfns/round-based"
 
 [lib]
 proc-macro = true

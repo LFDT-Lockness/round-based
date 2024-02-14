@@ -1,10 +1,10 @@
 [package]
 name = "round-based"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Driver for MPC protocols"
-repository = "https://github.com/ZenGo-X/round-based-protocol"
+repository = "https://github.com/dfns/round-based"
 categories = ["asynchronous", "cryptography", "network-programming"]
 keywords = ["round-based", "mpc", "protocol"]
 readme = "../README.md"
