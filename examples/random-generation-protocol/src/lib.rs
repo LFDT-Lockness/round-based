@@ -52,7 +52,7 @@ where
     rng.fill_bytes(&mut local_randomness);
 
     // 2. Commit local randomness (broadcast m=sha256(randomness))
-    let commitment = Sha256::digest(&local_randomness);
+    let commitment = Sha256::digest(local_randomness);
     outgoing
         .send(Outgoing::broadcast(Msg::CommitMsg(CommitMsg {
             commitment,
@@ -86,7 +86,7 @@ where
         .into_iter_indexed()
         .zip(randomness.into_iter_indexed())
     {
-        let commitment_expected = Sha256::digest(&decommit.randomness);
+        let commitment_expected = Sha256::digest(decommit.randomness);
         if commit.commitment != commitment_expected {
             guilty_parties.push(Blame {
                 guilty_party: party_i,
@@ -161,6 +161,6 @@ mod tests {
             assert_eq!(output[0], output[usize::from(i)]);
         }
 
-        println!("Output randomness: {}", hex::encode(&output[0]));
+        println!("Output randomness: {}", hex::encode(output[0]));
     }
 }

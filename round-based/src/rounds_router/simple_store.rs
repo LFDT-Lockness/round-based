@@ -117,8 +117,7 @@ where
                 msg_id: msg.id,
                 expected: self.expected_msg_type,
                 actual: msg.msg_type,
-            }
-            .into());
+            });
         }
         if msg.sender == self.i {
             // Ignore own messages
@@ -141,14 +140,12 @@ where
             Some(Some(_)) => Err(RoundInputError::AttemptToOverwriteReceivedMsg {
                 msgs_ids: [self.messages_ids[index], msg.id],
                 sender: msg.sender,
-            }
-            .into()),
+            }),
             None => Err(RoundInputError::SenderIndexOutOfRange {
                 msg_id: msg.id,
                 sender: msg.sender,
                 n: self.n,
-            }
-            .into()),
+            }),
         }
     }
 
@@ -210,7 +207,7 @@ impl<M> RoundMsgs<M> {
     pub fn into_iter_indexed(self) -> impl Iterator<Item = (PartyIndex, MsgId, M)> {
         let parties_indexes = (0..self.i).chain(self.i + 1..);
         parties_indexes
-            .zip(self.ids.into_iter())
+            .zip(self.ids)
             .zip(self.messages)
             .map(|((party_ind, msg_id), msg)| (party_ind, msg_id, msg))
     }
