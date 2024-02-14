@@ -237,7 +237,7 @@ pub struct RoundsRouterBuilder<M> {
 impl<M> Default for RoundsRouterBuilder<M>
 where
     M: ProtocolMessage + 'static,
- {
+{
     fn default() -> Self {
         Self::new()
     }
