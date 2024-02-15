@@ -234,6 +234,15 @@ pub struct RoundsRouterBuilder<M> {
     rounds: HashMap<u16, Option<Box<dyn ProcessRoundMessage<Msg = M> + Send>>>,
 }
 
+impl<M> Default for RoundsRouterBuilder<M>
+where
+    M: ProtocolMessage + 'static,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<M> RoundsRouterBuilder<M>
 where
     M: ProtocolMessage + 'static,
