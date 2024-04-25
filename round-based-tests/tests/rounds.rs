@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use futures::{sink, stream, Sink, Stream};
 use hex_literal::hex;
 use matches::assert_matches;
-use rand::SeedableRng;
+use rand_chacha::rand_core::SeedableRng;
 
 use random_generation_protocol::{
     protocol_of_random_generation, CommitMsg, DecommitMsg, Error, Msg,
@@ -432,6 +432,13 @@ where
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("dummy error")]
+#[derive(Debug)]
 struct DummyError;
+
+impl std::fmt::Display for DummyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("dummy error")
+    }
+}
+
+impl std::error::Error for DummyError {}

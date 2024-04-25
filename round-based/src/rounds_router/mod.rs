@@ -269,10 +269,7 @@ where
     {
         let overridden_round = self.rounds.insert(
             M::ROUND,
-            Some(Box::new(ProcessRoundMessageImpl::InProgress {
-                store: message_store,
-                _ph: PhantomType::new(),
-            })),
+            Some(Box::new(ProcessRoundMessageImpl::new(message_store))),
         );
         if overridden_round.is_some() {
             panic!("round {} is overridden", M::ROUND);
@@ -342,6 +339,23 @@ enum ProcessRoundMessageImpl<S: MessagesStore, M: ProtocolMessage + RoundMessage
     InProgress { store: S, _ph: PhantomType<fn(M)> },
     Completed(Result<S::Output, CompleteRoundError<S::Error, Infallible>>),
     Gone,
+}
+
+impl<S: MessagesStore, M: ProtocolMessage + RoundMessage<S::Msg>> ProcessRoundMessageImpl<S, M> {
+    pub fn new(store: S) -> Self {
+        if store.wants_more() {
+            Self::InProgress {
+                store,
+                _ph: Default::default(),
+            }
+        } else {
+            Self::Completed(
+                store
+                    .output()
+                    .map_err(|_| errors::ImproperStoreImpl::StoreDidntOutput.into()),
+            )
+        }
+    }
 }
 
 impl<S, M> ProcessRoundMessageImpl<S, M>
@@ -586,5 +600,45 @@ pub mod errors {
         ImproperStoreImpl,
         RoundsMisuse,
         Bug,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    struct Store;
+
+    #[derive(crate::ProtocolMessage)]
+    #[protocol_message(root = crate)]
+    enum FakeProtocolMsg {
+        R1(Msg1),
+    }
+    struct Msg1;
+
+    impl super::MessagesStore for Store {
+        type Msg = Msg1;
+        type Output = ();
+        type Error = ();
+
+        fn add_message(&mut self, _msg: crate::Incoming<Self::Msg>) -> Result<(), Self::Error> {
+            Ok(())
+        }
+        fn wants_more(&self) -> bool {
+            false
+        }
+        fn output(self) -> Result<Self::Output, Self> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn complete_round_that_expects_no_messages() {
+        let incomings =
+            futures::stream::pending::<Result<crate::Incoming<FakeProtocolMsg>, std::io::Error>>();
+
+        let mut rounds = super::RoundsRouter::builder();
+        let round1 = rounds.add_round(Store);
+        let mut rounds = rounds.listen(incomings);
+
+        let _ = rounds.complete(round1).await.unwrap();
     }
 }
