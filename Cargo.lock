@@ -553,13 +553,13 @@ dependencies = [
 
 [[package]]
 name = "round-based"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "futures",
  "futures-util",
  "matches",
  "phantom-type",
- "round-based-derive 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "round-based-derive",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -569,18 +569,7 @@ dependencies = [
 
 [[package]]
 name = "round-based-derive"
-version = "0.2.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "round-based-derive"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0397bf224fdbcb3b286926e43bba90a96f81a82cc630ebfc9290d18e8b6331bd"
+version = "0.2.1"
 dependencies = [
  "proc-macro2",
  "quote",

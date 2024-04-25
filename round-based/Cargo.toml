@@ -21,7 +21,7 @@ phantom-type = "0.3"
 tracing = "0.1"
 thiserror = "1"
 
-round-based-derive = { version = "0.2", optional = true }
+round-based-derive = { version = "0.2", optional = true, path = "../round-based-derive" }
 
 tokio = { version = "1", features = ["rt"], optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
@@ -30,6 +30,7 @@ tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 trybuild = "1"
 matches = "0.1"
 futures = { version = "0.3", default-features = false }
+tokio = { version = "1", features = ["macros"] }
 
 [features]
 default = []
