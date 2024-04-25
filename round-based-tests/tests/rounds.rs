@@ -3,6 +3,7 @@ use std::convert::Infallible;
 use futures::{sink, stream, Sink, Stream};
 use hex_literal::hex;
 use matches::assert_matches;
+use rand_chacha::rand_core::SeedableRng;
 
 use random_generation_protocol::{
     protocol_of_random_generation, CommitMsg, DecommitMsg, Error, Msg,
