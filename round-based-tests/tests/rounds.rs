@@ -3,7 +3,6 @@ use std::convert::Infallible;
 use futures::{sink, stream, Sink, Stream};
 use hex_literal::hex;
 use matches::assert_matches;
-use rand::SeedableRng;
 
 use random_generation_protocol::{
     protocol_of_random_generation, CommitMsg, DecommitMsg, Error, Msg,
@@ -12,8 +11,6 @@ use round_based::rounds_router::errors::IoError;
 use round_based::rounds_router::{simple_store::RoundInput, CompleteRoundError, RoundsRouter};
 use round_based::{Delivery, Incoming, MessageType, MpcParty, Outgoing};
 
-const PARTY0_SEED: [u8; 32] =
-    hex!("6772d079d5c984b3936a291e36b0d3dc6c474e36ed4afdfc973ef79a431ca870");
 const PARTY1_COMMITMENT: [u8; 32] =
     hex!("2a8c585d9a80cb78bc226f4ab35a75c8e5834ff77a83f41cf6c893ea0f3b2aed");
 const PARTY1_RANDOMNESS: [u8; 32] =
@@ -398,7 +395,7 @@ where
     I::IntoIter: Send + 'static,
     E: std::error::Error + Send + Sync + Unpin + 'static,
 {
-    let rng = rand_chacha::ChaCha8Rng::from_seed(PARTY0_SEED);
+    let rng = rand_dev::DevRng::new();
 
     let party = MpcParty::connected(MockedDelivery::new(stream::iter(incomings), sink::drain()));
     protocol_of_random_generation(party, 0, 3, rng).await
@@ -432,6 +429,13 @@ where
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("dummy error")]
+#[derive(Debug)]
 struct DummyError;
+
+impl std::fmt::Display for DummyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("dummy error")
+    }
+}
+
+impl std::error::Error for DummyError {}
