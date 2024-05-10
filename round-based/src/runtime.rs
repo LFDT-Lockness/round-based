@@ -26,10 +26,11 @@ pub struct TokioRuntime;
 
 #[cfg(feature = "runtime-tokio")]
 impl AsyncRuntime for TokioRuntime {
-    type YieldNowFuture = core::pin::Pin<Box<dyn core::future::Future<Output = ()> + Send>>;
+    type YieldNowFuture =
+        core::pin::Pin<alloc::boxed::Box<dyn core::future::Future<Output = ()> + Send>>;
 
     fn yield_now(&self) -> Self::YieldNowFuture {
-        Box::pin(tokio::task::yield_now())
+        alloc::boxed::Box::pin(tokio::task::yield_now())
     }
 }
 

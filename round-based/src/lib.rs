@@ -38,8 +38,13 @@
 //! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](runtime)
 
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg, doc_cfg_hide))]
-#![deny(missing_docs)]
-#![forbid(unused_crate_dependencies)]
+#![forbid(unused_crate_dependencies, missing_docs)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
 
 /// Fixes false-positive of `unused_crate_dependencies` lint that only occure in the tests
 #[cfg(test)]
@@ -71,3 +76,15 @@ pub mod _docs;
 /// See [`ProtocolMessage`] docs for more details
 #[cfg(feature = "derive")]
 pub use round_based_derive::ProtocolMessage;
+
+mod std_error {
+    #[cfg(feature = "std")]
+    pub use std::error::Error as StdError;
+
+    #[cfg(not(feature = "std"))]
+    pub trait StdError: core::fmt::Display + core::fmt::Debug {}
+    #[cfg(not(feature = "std"))]
+    impl<E: core::fmt::Display + core::fmt::Debug> StdError for E {}
+}
+
+use std_error::StdError;
