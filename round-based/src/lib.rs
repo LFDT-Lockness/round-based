@@ -12,7 +12,7 @@
 //! * Simple, configurable \
 //!   Protocol can be carried out in a few lines of code: check out examples.
 //! * Independent of networking layer \
-//!   We use abstractions [`Stream`](futures_util::Stream) and [`Sink`](futures_util::Sink) to receive and send messages.
+//!   We use abstractions [`Stream`] and [`Sink`] to receive and send messages.
 //!
 //! ## Networking
 //!
