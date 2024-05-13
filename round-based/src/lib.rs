@@ -46,6 +46,9 @@ extern crate std;
 
 extern crate alloc;
 
+#[doc(no_inline)]
+pub use futures_util::{Sink, SinkExt, Stream, StreamExt};
+
 /// Fixes false-positive of `unused_crate_dependencies` lint that only occure in the tests
 #[cfg(test)]
 mod false_positives {

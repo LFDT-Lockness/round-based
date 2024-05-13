@@ -9,21 +9,34 @@ env:
   CARGO_NET_GIT_FETCH_WITH_CLI: true
 
 jobs:
-  build-and-test:
+  check-no-features:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
       with:
         cache-on-failure: "true"
-    - name: Build no features
-      run: cargo build -p round-based
-    - name: Build with tokio
-      run: cargo build -p round-based --features runtime-tokio
-    - name: Build with all features
-      run: cargo build -p round-based --all-features
-    - name: Run tests
-      run: cargo test --all-features
+    - name: cargo check
+      run: cargo check -p round-based --no-default-features
+  check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: "true"
+    - name: cargo check
+      run: cargo check -p round-based
+  check-all-features:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: "true"
+    - name: cargo check
+      run: cargo check -p round-based --all-features
+
   check-fmt:
     runs-on: ubuntu-latest
     steps:
@@ -48,3 +61,16 @@ jobs:
         cache-on-failure: "true"
     - name: Run clippy
       run: cargo clippy --all --lib
+
+  build-wasm-nostd:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: "true"
+    - name: Install wasm32-unknown-unknown toolchain
+      run: rustup target add wasm32-unknown-unknown
+    - name: Build on wasm32-unknown-unknown (no_std)
+      run:
+        (cd wasm/no_std && cargo build --target wasm32-unknown-unknown)

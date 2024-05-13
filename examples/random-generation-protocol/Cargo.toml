@@ -7,18 +7,24 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-round-based = { path = "../../round-based", features = ["derive"]  }
+round-based = { path = "../../round-based", default-features = false, features = ["derive"] }
 
-tokio = { version = "1.15", features = ["rt"] }
-futures = "0.3"
-rand = "0.8"
-sha2 = "0.10"
-serde = { version = "1", features = ["derive"] }
+rand_core = { version = "0.6", default-features = false }
+sha2 = { version = "0.10", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive"] }
+
+displaydoc = { version = "0.2", default-features = false }
+thiserror = { version = "1", optional = true }
+
+# We don't use it directy, but we need to enable `serde` feature
 generic-array = { version = "0.14", features = ["serde"] }
-thiserror = "1"
 
 [dev-dependencies]
 round-based = { path = "../../round-based", features = ["derive", "dev"]  }
 tokio = { version = "1.15", features = ["macros", "rt"] }
+futures = "0.3"
 hex = "0.4"
-rand_chacha = "0.3"
+rand_dev = "0.1"
+
+[features]
+std = ["thiserror"]
