@@ -9,7 +9,7 @@
 /// function.
 pub trait AsyncRuntime {
     /// Future type returned by [yield_now](Self::yield_now)
-    type YieldNowFuture: core::future::Future<Output = ()> + Send + 'static;
+    type YieldNowFuture: core::future::Future<Output = ()>;
 
     /// Yields the execution back to the runtime
     ///

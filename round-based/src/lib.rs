@@ -60,6 +60,8 @@ mod delivery;
 pub mod party;
 pub mod rounds_router;
 pub mod runtime;
+#[cfg(feature = "state-machine")]
+pub mod state_machine;
 
 #[cfg(feature = "dev")]
 pub mod simulation;

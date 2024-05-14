@@ -3,7 +3,7 @@
 #![no_std]
 #![forbid(unused_crate_dependencies, missing_docs)]
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", test))]
 extern crate std;
 
 extern crate alloc;
@@ -175,7 +175,9 @@ pub struct Blame {
 mod tests {
     use alloc::vec;
 
+    use rand::Rng;
     use round_based::simulation::Simulation;
+    use sha2::{Digest, Sha256};
 
     use super::{protocol_of_random_generation, Msg};
 
@@ -202,5 +204,102 @@ mod tests {
         }
 
         std::println!("Output randomness: {}", hex::encode(output[0]));
+    }
+
+    // Emulate the protocol using the state machine interface
+    #[test]
+    fn state_machine() {
+        use super::{CommitMsg, DecommitMsg, Msg};
+        use round_based::{
+            state_machine::{ProceedResult, StateMachine},
+            Incoming, Outgoing,
+        };
+
+        let mut rng = rand_dev::DevRng::new();
+
+        let party1_rng: [u8; 32] = rng.gen();
+        let party1_com = Sha256::digest(party1_rng);
+
+        let party2_rng: [u8; 32] = rng.gen();
+        let party2_com = Sha256::digest(party2_rng);
+
+        let mut party0 = round_based::state_machine::wrap_protocol(|party| async {
+            protocol_of_random_generation(party, 0, 3, rng).await
+        });
+
+        let ProceedResult::SendMsg(Outgoing {
+            msg: Msg::CommitMsg(party0_com),
+            ..
+        }) = party0.proceed()
+        else {
+            panic!("unexpected response")
+        };
+
+        let ProceedResult::NeedMoreMessages = party0.proceed() else {
+            panic!("unexpected response")
+        };
+        let ProceedResult::NeedMoreMessages = party0.received_msg(Incoming {
+            id: 0,
+            sender: 1,
+            msg_type: round_based::MessageType::Broadcast,
+            msg: Msg::CommitMsg(CommitMsg {
+                commitment: party1_com,
+            }),
+        }) else {
+            panic!("unexpected response")
+        };
+        let ProceedResult::SendMsg(Outgoing {
+            msg: Msg::DecommitMsg(party0_rng),
+            ..
+        }) = party0.received_msg(Incoming {
+            id: 1,
+            sender: 2,
+            msg_type: round_based::MessageType::Broadcast,
+            msg: Msg::CommitMsg(CommitMsg {
+                commitment: party2_com,
+            }),
+        })
+        else {
+            panic!("unexpected response")
+        };
+
+        {
+            // Check that commitment matches the revealed randomness
+            let expected = Sha256::digest(party0_rng.randomness);
+            assert_eq!(party0_com.commitment, expected);
+        }
+
+        let ProceedResult::NeedMoreMessages = party0.proceed() else {
+            panic!("unexpected response")
+        };
+        let ProceedResult::NeedMoreMessages = party0.received_msg(Incoming {
+            id: 3,
+            sender: 1,
+            msg_type: round_based::MessageType::Broadcast,
+            msg: Msg::DecommitMsg(DecommitMsg {
+                randomness: party1_rng,
+            }),
+        }) else {
+            panic!("unexpected response")
+        };
+        let ProceedResult::Output(Ok(output_rng)) = party0.received_msg(Incoming {
+            id: 3,
+            sender: 2,
+            msg_type: round_based::MessageType::Broadcast,
+            msg: Msg::DecommitMsg(DecommitMsg {
+                randomness: party2_rng,
+            }),
+        }) else {
+            panic!("unexpected response")
+        };
+
+        let output_expected = party0_rng
+            .randomness
+            .iter()
+            .zip(&party1_rng)
+            .zip(&party2_rng)
+            .map(|((a, b), c)| a ^ b ^ c)
+            .collect::<alloc::vec::Vec<_>>();
+        assert_eq!(output_rng, output_expected.as_slice());
     }
 }
