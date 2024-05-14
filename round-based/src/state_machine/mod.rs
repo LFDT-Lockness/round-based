@@ -27,30 +27,33 @@ pub trait StateMachine {
     /// Calling `proceed` after protocol has finished (after it returned [`ProceedResult::Output`])
     /// returns an error.
     fn proceed(&mut self) -> ProceedResult<Self::Output, Self::Msg>;
-    /// Feeds a message received from another party, and [resumes](Self::resume) the protocol execution
+    /// Saves received message to be picked up by the state machine on the next [`proceed`](Self::proceed) invocation
     ///
-    /// This method can only be called if state machine returned [`ProceedResult::NeedsMoreMessages`]
-    /// just before that. Calling this method when state machine did not request it may result into an
-    /// error which will abort the protocol.
+    /// This method can only be called if state machine returned [`ProceedResult::NeedsOneMoreMessage`] on previous
+    /// invocation of [`proceed`](Self::proceed) method. Calling this method when state machine did not request it
+    /// may result into an error which will abort the protocol execution.
+    ///
+    /// Calling this method must be followed up by calling [`proceed`](Self::proceed). Do not invoke this method
+    /// more than once in a row, even if you have available messages received from other parties. Instead, you
+    /// should call this method, then call `proceed`, and only if it returned [`ProceedResult::NeedsOneMoreMessage`]
+    /// you can call `received_msg` again.
     ///
     /// Calling `received_msg` after protocol has finished (after it returned [`ProceedResult::Output`])
     /// returns an error.
-    fn received_msg(
-        &mut self,
-        msg: crate::Incoming<Self::Msg>,
-    ) -> ProceedResult<Self::Output, Self::Msg>;
+    fn received_msg(&mut self, msg: crate::Incoming<Self::Msg>) -> Result<(), ExecutionError>;
 }
 
 /// Tells why protocol execution stopped
 #[derive(Debug)]
+#[must_use = "ProceedResult must be used to correcty carry out the state machine"]
 pub enum ProceedResult<O, M> {
     /// Protocol needs provided message to be sent
     SendMsg(crate::Outgoing<M>),
-    /// Protocol waits messages from other parties
+    /// Protocol needs one more message to be received
     ///
-    /// After the state machine requested more messages, the next call to the state machine must
+    /// After the state machine requested one more message, the next call to the state machine must
     /// be [`StateMachine::received_msg`].
-    NeedMoreMessages,
+    NeedsOneMoreMessage,
     /// Protocol is finised
     Output(O),
     /// Protocol yielded the execution
@@ -88,6 +91,11 @@ enum Reason {
 impl<O, M> From<Reason> for ProceedResult<O, M> {
     fn from(err: Reason) -> Self {
         ProceedResult::Error(ExecutionError(err))
+    }
+}
+impl From<Reason> for ExecutionError {
+    fn from(err: Reason) -> Self {
+        ExecutionError(err)
     }
 }
 
@@ -132,7 +140,7 @@ where
 
                 // Check if it's waiting for a new message
                 if self.shared_state.protocol_wants_more_messages() {
-                    return ProceedResult::NeedMoreMessages;
+                    return ProceedResult::NeedsOneMoreMessage;
                 }
 
                 // Check if protocol yielded
@@ -147,28 +155,27 @@ where
         }
     }
 
-    fn received_msg(
-        &mut self,
-        msg: crate::Incoming<Self::Msg>,
-    ) -> ProceedResult<Self::Output, Self::Msg> {
+    fn received_msg(&mut self, msg: crate::Incoming<Self::Msg>) -> Result<(), ExecutionError> {
         if self.shared_state.executor_received_msg(msg).is_err() {
-            return Reason::IncomingMsgWasntPickedUp.into();
+            return Err(Reason::IncomingMsgWasntPickedUp.into());
         }
-        self.proceed()
+        Ok(())
     }
 }
 
 /// Delivery implementation used in the state machine
 pub type Delivery<M> = (Incomings<M>, Outgoings<M>);
 
-type MpcParty<M> = crate::MpcParty<M, Delivery<M>, Runtime<M>>;
+/// MpcParty instantiated with state machine implementation of delivery and async runtime
+pub type MpcParty<M> = crate::MpcParty<M, Delivery<M>, Runtime<M>>;
 
 /// Wraps the protocol and provides sync API to execute it
-pub fn wrap_protocol<M, F>(
+pub fn wrap_protocol<'a, M, F>(
     protocol: impl FnOnce(MpcParty<M>) -> F,
-) -> impl StateMachine<Output = F::Output, Msg = M>
+) -> impl StateMachine<Output = F::Output, Msg = M> + 'a
 where
-    F: Future,
+    F: Future + 'a,
+    M: 'static,
 {
     let shared_state = shared_state::SharedStateRef::new();
     let incomings = Incomings::new(shared_state.clone());

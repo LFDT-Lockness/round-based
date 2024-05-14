@@ -223,10 +223,14 @@ mod tests {
         let party2_rng: [u8; 32] = rng.gen();
         let party2_com = Sha256::digest(party2_rng);
 
+        // Start the protocol
         let mut party0 = round_based::state_machine::wrap_protocol(|party| async {
             protocol_of_random_generation(party, 0, 3, rng).await
         });
 
+        // Round 1
+
+        // Party sends its commitment
         let ProceedResult::SendMsg(Outgoing {
             msg: Msg::CommitMsg(party0_com),
             ..
@@ -235,30 +239,43 @@ mod tests {
             panic!("unexpected response")
         };
 
-        let ProceedResult::NeedMoreMessages = party0.proceed() else {
+        // Round 2
+
+        // Party needs messages sent by other parties in round 1
+        let ProceedResult::NeedsOneMoreMessage = party0.proceed() else {
             panic!("unexpected response")
         };
-        let ProceedResult::NeedMoreMessages = party0.received_msg(Incoming {
-            id: 0,
-            sender: 1,
-            msg_type: round_based::MessageType::Broadcast,
-            msg: Msg::CommitMsg(CommitMsg {
-                commitment: party1_com,
-            }),
-        }) else {
+        // Provide message from party 1
+        party0
+            .received_msg(Incoming {
+                id: 0,
+                sender: 1,
+                msg_type: round_based::MessageType::Broadcast,
+                msg: Msg::CommitMsg(CommitMsg {
+                    commitment: party1_com,
+                }),
+            })
+            .unwrap();
+        let ProceedResult::NeedsOneMoreMessage = party0.proceed() else {
             panic!("unexpected response")
         };
+        // Provide message from party 2
+        party0
+            .received_msg(Incoming {
+                id: 1,
+                sender: 2,
+                msg_type: round_based::MessageType::Broadcast,
+                msg: Msg::CommitMsg(CommitMsg {
+                    commitment: party2_com,
+                }),
+            })
+            .unwrap();
+
+        // Party sends message in round 2
         let ProceedResult::SendMsg(Outgoing {
             msg: Msg::DecommitMsg(party0_rng),
             ..
-        }) = party0.received_msg(Incoming {
-            id: 1,
-            sender: 2,
-            msg_type: round_based::MessageType::Broadcast,
-            msg: Msg::CommitMsg(CommitMsg {
-                commitment: party2_com,
-            }),
-        })
+        }) = party0.proceed()
         else {
             panic!("unexpected response")
         };
@@ -269,27 +286,39 @@ mod tests {
             assert_eq!(party0_com.commitment, expected);
         }
 
-        let ProceedResult::NeedMoreMessages = party0.proceed() else {
+        // Final round
+
+        // Party needs messages sent by other parties in round 2
+        let ProceedResult::NeedsOneMoreMessage = party0.proceed() else {
             panic!("unexpected response")
         };
-        let ProceedResult::NeedMoreMessages = party0.received_msg(Incoming {
-            id: 3,
-            sender: 1,
-            msg_type: round_based::MessageType::Broadcast,
-            msg: Msg::DecommitMsg(DecommitMsg {
-                randomness: party1_rng,
-            }),
-        }) else {
+        // Provide message from party 1
+        party0
+            .received_msg(Incoming {
+                id: 3,
+                sender: 1,
+                msg_type: round_based::MessageType::Broadcast,
+                msg: Msg::DecommitMsg(DecommitMsg {
+                    randomness: party1_rng,
+                }),
+            })
+            .unwrap();
+        let ProceedResult::NeedsOneMoreMessage = party0.proceed() else {
             panic!("unexpected response")
         };
-        let ProceedResult::Output(Ok(output_rng)) = party0.received_msg(Incoming {
-            id: 3,
-            sender: 2,
-            msg_type: round_based::MessageType::Broadcast,
-            msg: Msg::DecommitMsg(DecommitMsg {
-                randomness: party2_rng,
-            }),
-        }) else {
+        // Provide message from party 2
+        party0
+            .received_msg(Incoming {
+                id: 3,
+                sender: 2,
+                msg_type: round_based::MessageType::Broadcast,
+                msg: Msg::DecommitMsg(DecommitMsg {
+                    randomness: party2_rng,
+                }),
+            })
+            .unwrap();
+        // Obtain the protocol result
+        let ProceedResult::Output(Ok(output_rng)) = party0.proceed() else {
             panic!("unexpected response")
         };
 

@@ -223,7 +223,7 @@ dependencies = [
 
 [[package]]
 name = "round-based"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "displaydoc",
  "futures-util",
@@ -333,4 +333,5 @@ name = "wasm_nostd_compiles"
 version = "0.1.0"
 dependencies = [
  "random-generation-protocol",
+ "round-based",
 ]
