@@ -36,9 +36,9 @@ impl<'a, M> core::future::Future for YieldNow<M> {
         _cx: &mut core::task::Context<'_>,
     ) -> Poll<Self::Output> {
         if !self.yielded {
-            self.yielded = true;
             let scheduler = ready!(self.shared_state.can_schedule());
             scheduler.protocol_yields();
+            self.yielded = true;
             Poll::Pending
         } else {
             Poll::Ready(())
