@@ -29,22 +29,21 @@ pub trait StateMachine {
     fn proceed(&mut self) -> ProceedResult<Self::Output, Self::Msg>;
     /// Saves received message to be picked up by the state machine on the next [`proceed`](Self::proceed) invocation
     ///
-    /// This method can only be called if state machine returned [`ProceedResult::NeedsOneMoreMessage`] on previous
+    /// This method should only be called if state machine returned [`ProceedResult::NeedsOneMoreMessage`] on previous
     /// invocation of [`proceed`](Self::proceed) method. Calling this method when state machine did not request it
-    /// may result into an error which will abort the protocol execution.
+    /// may return error.
     ///
     /// Calling this method must be followed up by calling [`proceed`](Self::proceed). Do not invoke this method
     /// more than once in a row, even if you have available messages received from other parties. Instead, you
     /// should call this method, then call `proceed`, and only if it returned [`ProceedResult::NeedsOneMoreMessage`]
     /// you can call `received_msg` again.
-    ///
-    /// Calling `received_msg` after protocol has finished (after it returned [`ProceedResult::Output`])
-    /// returns an error.
-    fn received_msg(&mut self, msg: crate::Incoming<Self::Msg>) -> Result<(), ExecutionError>;
+    fn received_msg(
+        &mut self,
+        msg: crate::Incoming<Self::Msg>,
+    ) -> Result<(), crate::Incoming<Self::Msg>>;
 }
 
 /// Tells why protocol execution stopped
-#[derive(Debug)]
 #[must_use = "ProceedResult must be used to correcty carry out the state machine"]
 pub enum ProceedResult<O, M> {
     /// Protocol needs provided message to be sent
@@ -73,6 +72,18 @@ pub enum ProceedResult<O, M> {
     Error(ExecutionError),
 }
 
+impl<O, M> core::fmt::Debug for ProceedResult<O, M> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ProceedResult::SendMsg(_) => f.write_str("SendMsg"),
+            ProceedResult::NeedsOneMoreMessage => f.write_str("NeedsOneMoreMessage"),
+            ProceedResult::Output(_) => f.write_str("Output"),
+            ProceedResult::Yielded => f.write_str("Yielded"),
+            ProceedResult::Error(_) => f.write_str("Error"),
+        }
+    }
+}
+
 /// Error type which indicates that state machine failed to carry out the protocol
 #[derive(Debug, displaydoc::Display)]
 #[displaydoc("{0}")]
@@ -84,8 +95,6 @@ enum Reason {
     Exhausted,
     #[displaydoc("protocol polls unknown (unsupported) future")]
     PollingUnknownFuture,
-    #[displaydoc("incoming message was not picked up by the protocol")]
-    IncomingMsgWasntPickedUp,
 }
 
 impl<O, M> From<Reason> for ProceedResult<O, M> {
@@ -155,11 +164,8 @@ where
         }
     }
 
-    fn received_msg(&mut self, msg: crate::Incoming<Self::Msg>) -> Result<(), ExecutionError> {
-        if self.shared_state.executor_received_msg(msg).is_err() {
-            return Err(Reason::IncomingMsgWasntPickedUp.into());
-        }
-        Ok(())
+    fn received_msg(&mut self, msg: crate::Incoming<Self::Msg>) -> Result<(), crate::Incoming<M>> {
+        self.shared_state.executor_received_msg(msg)
     }
 }
 

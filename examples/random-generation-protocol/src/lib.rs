@@ -173,7 +173,7 @@ pub struct Blame {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
 
     use rand::Rng;
     use round_based::simulation::Simulation;
@@ -182,7 +182,7 @@ mod tests {
     use super::{protocol_of_random_generation, Msg};
 
     #[tokio::test]
-    async fn main() {
+    async fn simulation_async() {
         let mut rng = rand_dev::DevRng::new();
 
         let n: u16 = 5;
@@ -204,6 +204,25 @@ mod tests {
         }
 
         std::println!("Output randomness: {}", hex::encode(output[0]));
+    }
+
+    #[test]
+    fn simulation_sync() {
+        let mut rng = rand_dev::DevRng::new();
+
+        let simulation = round_based::simulation::SimulationSync::from_fn(5, |i, party| {
+            protocol_of_random_generation(party, i, 5, rng.fork())
+        });
+
+        let outputs = simulation
+            .run()
+            .unwrap()
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        for output_i in &outputs {
+            assert_eq!(*output_i, outputs[0]);
+        }
     }
 
     // Emulate the protocol using the state machine interface
