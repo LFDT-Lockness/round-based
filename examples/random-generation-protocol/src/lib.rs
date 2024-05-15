@@ -210,7 +210,7 @@ mod tests {
     fn simulation_sync() {
         let mut rng = rand_dev::DevRng::new();
 
-        let simulation = round_based::simulation::SimulationSync::from_fn(5, |i, party| {
+        let simulation = round_based::simulation::SimulationSync::from_async_fn(5, |i, party| {
             protocol_of_random_generation(party, i, 5, rng.fork())
         });
 

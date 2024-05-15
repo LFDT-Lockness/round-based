@@ -3,19 +3,19 @@ use alloc::{boxed::Box, collections::VecDeque, vec, vec::Vec};
 use crate::{state_machine::ProceedResult, Incoming, MessageDestination, MessageType, Outgoing};
 
 /// Simulates MPC protocol with parties defined as [state machines](crate::state_machine)
-pub struct SimulationSync<O, M> {
-    parties: Vec<Party<O, M>>,
+pub struct SimulationSync<'a, O, M> {
+    parties: Vec<Party<'a, O, M>>,
 }
 
-enum Party<O, M> {
+enum Party<'a, O, M> {
     Active {
-        party: Box<dyn crate::state_machine::StateMachine<Output = O, Msg = M>>,
+        party: Box<dyn crate::state_machine::StateMachine<Output = O, Msg = M> + 'a>,
         wants_one_more_msg: bool,
     },
     Finished(O),
 }
 
-impl<O, M> SimulationSync<O, M>
+impl<'a, O, M> SimulationSync<'a, O, M>
 where
     M: Clone + 'static,
 {
@@ -28,25 +28,42 @@ where
         }
     }
 
-    /// Constructs a simulation with `n` parties
+    /// Constructs empty simulation containing no parties, with allocated memory that can fit up to `n` parties without re-allocations
+    pub fn with_capacity(n: u16) -> Self {
+        Self {
+            parties: Vec::with_capacity(n.into()),
+        }
+    }
+
+    /// Constructs a simulation with `n` parties from async function that defines the protocol
     ///
     /// Each party has index `0 <= i < n` and instantiated via provided `init` function
-    pub fn from_fn<F>(
+    pub fn from_async_fn<F>(
         n: u16,
         mut init: impl FnMut(u16, crate::state_machine::MpcParty<M>) -> F,
     ) -> Self
     where
-        F: core::future::Future<Output = O> + 'static,
+        F: core::future::Future<Output = O> + 'a,
     {
-        let mut sim = Self {
-            parties: Vec::with_capacity(n.into()),
-        };
-
+        let mut sim = Self::with_capacity(n);
         for i in 0..n {
             let party = crate::state_machine::wrap_protocol(|party| init(i, party));
             sim.add_party(party)
         }
+        sim
+    }
 
+    /// Construct a simulation with `n` parties from `init` function that constructs state machine for each party
+    ///
+    /// Each party has index `0 <= i < n` and instantiated via provided `init` function
+    pub fn from_fn<S>(n: u16, mut init: impl FnMut(u16) -> S) -> Self
+    where
+        S: crate::state_machine::StateMachine<Output = O, Msg = M> + 'a,
+    {
+        let mut sim = Self::with_capacity(n);
+        for i in 0..n {
+            sim.add_party(init(i));
+        }
         sim
     }
 
@@ -56,7 +73,7 @@ where
     /// simulation after this party was added.
     pub fn add_party(
         &mut self,
-        party: impl crate::state_machine::StateMachine<Output = O, Msg = M> + 'static,
+        party: impl crate::state_machine::StateMachine<Output = O, Msg = M> + 'a,
     ) {
         self.parties.push(Party::Active {
             party: Box::new(party),
