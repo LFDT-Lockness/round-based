@@ -57,7 +57,7 @@ pub enum ProceedResult<O, M> {
     Output(O),
     /// Protocol yielded the execution
     ///
-    /// Protocol may yield at any point by calling [`AsyncRuntime::yield_now`]. Main motivation
+    /// Protocol may yield at any point by calling `AsyncRuntime::yield_now`. Main motivation
     /// for yielding is to break a long computation into smaller parts, so proceeding state
     /// machine doesn't take too long.
     ///

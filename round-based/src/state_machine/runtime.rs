@@ -22,7 +22,7 @@ impl<'a, M> crate::runtime::AsyncRuntime for Runtime<M> {
     }
 }
 
-/// Future returned by [`runtime.yield_now()`](Runtime::yield_now)
+/// Future returned by [`runtime.yield_now()`](Runtime)
 pub struct YieldNow<M> {
     shared_state: super::shared_state::SharedStateRef<M>,
     yielded: bool,
