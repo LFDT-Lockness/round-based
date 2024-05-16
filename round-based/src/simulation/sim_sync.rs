@@ -115,7 +115,7 @@ where
 
                     match party.proceed() {
                         ProceedResult::SendMsg(msg) => {
-                            messages_queue.send_message(i, msg);
+                            messages_queue.send_message(i, msg)?;
                             continue 'this_party;
                         }
                         ProceedResult::NeedsOneMoreMessage => {
@@ -154,7 +154,7 @@ where
 /// Error returned by [`SimulationSync::run`]
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
-pub struct SimulationSyncError(Reason);
+pub struct SimulationSyncError(#[from] Reason);
 
 #[derive(Debug, thiserror::Error)]
 enum Reason {
@@ -162,12 +162,8 @@ enum Reason {
     SaveIncomingMsg,
     #[error("execution error")]
     ExecutionError(#[source] crate::state_machine::ExecutionError),
-}
-
-impl From<Reason> for SimulationSyncError {
-    fn from(err: Reason) -> Self {
-        Self(err)
-    }
+    #[error("party #{sender} tried to send a message to non existing party #{recipient}")]
+    UnknownRecipient { sender: u16, recipient: u16 },
 }
 
 struct MessagesQueue<M> {
@@ -183,7 +179,7 @@ impl<M: Clone> MessagesQueue<M> {
         }
     }
 
-    fn send_message(&mut self, sender: u16, msg: Outgoing<M>) {
+    fn send_message(&mut self, sender: u16, msg: Outgoing<M>) -> Result<(), SimulationSyncError> {
         match msg.recipient {
             MessageDestination::AllParties => {
                 let mut msg_ids = self.next_id..;
@@ -206,14 +202,22 @@ impl<M: Clone> MessagesQueue<M> {
                 let next_id = self.next_id;
                 self.next_id += 1;
 
-                self.queue[usize::from(destination)].push_back(Incoming {
-                    id: next_id,
-                    sender,
-                    msg_type: MessageType::P2P,
-                    msg: msg.msg,
-                })
+                self.queue
+                    .get_mut(usize::from(destination))
+                    .ok_or(Reason::UnknownRecipient {
+                        sender,
+                        recipient: destination,
+                    })?
+                    .push_back(Incoming {
+                        id: next_id,
+                        sender,
+                        msg_type: MessageType::P2P,
+                        msg: msg.msg,
+                    })
             }
         }
+
+        Ok(())
     }
 
     fn recv_next_msg(&mut self, recipient: u16) -> Option<Incoming<M>> {
