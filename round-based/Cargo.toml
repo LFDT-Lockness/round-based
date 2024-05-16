@@ -1,6 +1,6 @@
 [package]
 name = "round-based"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Driver for MPC protocols"
@@ -17,9 +17,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
-phantom-type = "0.3"
-tracing = "0.1"
-thiserror = "1"
+phantom-type = { version = "0.3", default-features = false }
+tracing = { version = "0.1", default-features = false }
+thiserror = { version = "1", optional = true }
+displaydoc = { version = "0.2", default-features = false }
 
 round-based-derive = { version = "0.2", optional = true, path = "../round-based-derive" }
 
@@ -33,10 +34,11 @@ futures = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["macros"] }
 
 [features]
-default = []
+default = ["std"]
 dev = ["tokio/sync", "tokio-stream"]
 derive = ["round-based-derive"]
 runtime-tokio = ["tokio"]
+std = ["thiserror"]
 
 [[test]]
 name = "derive"

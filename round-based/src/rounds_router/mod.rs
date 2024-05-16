@@ -47,15 +47,11 @@
 //! # type Error = Box<dyn std::error::Error>;
 //! ```
 
-use std::any::Any;
-use std::collections::HashMap;
-use std::convert::Infallible;
-use std::fmt::Debug;
-use std::mem;
+use alloc::{boxed::Box, collections::BTreeMap};
+use core::{any::Any, convert::Infallible, mem};
 
 use futures_util::{Stream, StreamExt};
 use phantom_type::PhantomType;
-use thiserror::Error;
 use tracing::{debug, error, trace, trace_span, warn, Span};
 
 use crate::Incoming;
@@ -72,7 +68,7 @@ mod store;
 /// See [module level](self) documentation to learn more about it.
 pub struct RoundsRouter<M, S = ()> {
     incomings: S,
-    rounds: HashMap<u16, Option<Box<dyn ProcessRoundMessage<Msg = M> + Send>>>,
+    rounds: BTreeMap<u16, Option<Box<dyn ProcessRoundMessage<Msg = M> + Send>>>,
 }
 
 impl<M: ProtocolMessage + 'static> RoundsRouter<M> {
@@ -86,6 +82,7 @@ impl<M, S, E> RoundsRouter<M, S>
 where
     M: ProtocolMessage,
     S: Stream<Item = Result<Incoming<M>, E>> + Unpin,
+    E: crate::StdError,
 {
     /// Completes specified round
     ///
@@ -231,7 +228,7 @@ where
 
 /// Builds [`RoundsRouter`]
 pub struct RoundsRouterBuilder<M> {
-    rounds: HashMap<u16, Option<Box<dyn ProcessRoundMessage<Msg = M> + Send>>>,
+    rounds: BTreeMap<u16, Option<Box<dyn ProcessRoundMessage<Msg = M> + Send>>>,
 }
 
 impl<M> Default for RoundsRouterBuilder<M>
@@ -252,7 +249,7 @@ where
     /// Alias to [`RoundsRouter::builder`]
     pub fn new() -> Self {
         Self {
-            rounds: HashMap::new(),
+            rounds: BTreeMap::new(),
         }
     }
 
@@ -327,11 +324,12 @@ trait ProcessRoundMessage {
     fn take_output(&mut self) -> Result<Result<Box<dyn Any>, Box<dyn Any>>, TakeOutputError>;
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, displaydoc::Display)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 enum TakeOutputError {
-    #[error("output is already taken")]
+    #[displaydoc("output is already taken")]
     AlreadyTaken,
-    #[error("output is not ready yet, more messages are needed")]
+    #[displaydoc("output is not ready yet, more messages are needed")]
     NotReady,
 }
 
@@ -467,39 +465,41 @@ impl NeedsMoreMessages {
 
 /// When something goes wrong
 pub mod errors {
-    use thiserror::Error;
-
     use super::TakeOutputError;
 
     /// Error indicating that `Rounds` failed to complete certain round
-    #[derive(Debug, Error)]
+    #[derive(Debug, displaydoc::Display)]
+    #[cfg_attr(feature = "std", derive(thiserror::Error))]
     pub enum CompleteRoundError<ProcessErr, IoErr> {
         /// [`MessagesStore`](super::MessagesStore) failed to process this message
-        #[error("failed to process the message")]
-        ProcessMessage(#[source] ProcessErr),
+        #[displaydoc("failed to process the message")]
+        ProcessMessage(#[cfg_attr(feature = "std", source)] ProcessErr),
         /// Receiving next message resulted into i/o error
-        #[error("receive next message")]
-        Io(
-            #[source]
-            #[from]
-            IoError<IoErr>,
-        ),
+        #[displaydoc("receive next message")]
+        Io(#[cfg_attr(feature = "std", source)] IoError<IoErr>),
         /// Some implementation specific error
         ///
         /// Error may be result of improper `MessagesStore` implementation, API misuse, or bug
         /// in `Rounds` implementation
-        #[error("implementation error")]
-        Other(#[source] OtherError),
+        #[displaydoc("implementation error")]
+        Other(#[cfg_attr(feature = "std", source)] OtherError),
+    }
+
+    impl<E, IoErr> From<IoError<IoErr>> for CompleteRoundError<E, IoErr> {
+        fn from(err: IoError<IoErr>) -> Self {
+            Self::Io(err)
+        }
     }
 
     /// Error indicating that receiving next message resulted into i/o error
-    #[derive(Error, Debug)]
+    #[derive(Debug, displaydoc::Display)]
+    #[cfg_attr(feature = "std", derive(thiserror::Error))]
     pub enum IoError<E> {
         /// I/O error
-        #[error("i/o error")]
-        Io(#[source] E),
+        #[displaydoc("i/o error")]
+        Io(#[cfg_attr(feature = "std", source)] E),
         /// Encountered unexpected EOF
-        #[error("unexpected eof")]
+        #[displaydoc("unexpected eof")]
         UnexpectedEof,
     }
 
@@ -507,40 +507,45 @@ pub mod errors {
     ///
     /// Error may be result of improper `MessagesStore` implementation, API misuse, or bug
     /// in `Rounds` implementation
-    #[derive(Error, Debug)]
-    #[error(transparent)]
+    #[derive(Debug)]
+    #[cfg_attr(feature = "std", derive(thiserror::Error), error(transparent))]
+    #[cfg_attr(not(feature = "std"), derive(displaydoc::Display), displaydoc("{0}"))]
     pub struct OtherError(OtherReason);
 
-    #[derive(Error, Debug)]
+    #[derive(Debug, displaydoc::Display)]
+    #[cfg_attr(feature = "std", derive(thiserror::Error))]
     pub(super) enum OtherReason {
-        #[error("improper `MessagesStore` implementation")]
-        ImproperStoreImpl(ImproperStoreImpl),
-        #[error("`Rounds` API misuse")]
-        RoundsMisuse(RoundsMisuse),
-        #[error("bug in `Rounds` (please, open a issue)")]
-        Bug(Bug),
+        #[displaydoc("improper `MessagesStore` implementation")]
+        ImproperStoreImpl(#[cfg_attr(feature = "std", source)] ImproperStoreImpl),
+        #[displaydoc("`Rounds` API misuse")]
+        RoundsMisuse(#[cfg_attr(feature = "std", source)] RoundsMisuse),
+        #[displaydoc("bug in `Rounds` (please, open a issue)")]
+        Bug(#[cfg_attr(feature = "std", source)] Bug),
     }
 
-    #[derive(Debug, Error)]
+    #[derive(Debug, displaydoc::Display)]
+    #[cfg_attr(feature = "std", derive(thiserror::Error))]
     pub(super) enum ImproperStoreImpl {
         /// Store indicated that it received enough messages but didn't output
         ///
         /// I.e. [`store.wants_more()`] returned `false`, but `store.output()` returned `Err(_)`.
-        #[error("store didn't output")]
+        #[displaydoc("store didn't output")]
         StoreDidntOutput,
     }
 
-    #[derive(Debug, Error)]
+    #[derive(Debug, displaydoc::Display)]
+    #[cfg_attr(feature = "std", derive(thiserror::Error))]
     pub(super) enum RoundsMisuse {
-        #[error("round is already completed")]
+        #[displaydoc("round is already completed")]
         RoundAlreadyCompleted,
-        #[error("round {n} is not registered")]
+        #[displaydoc("round {n} is not registered")]
         UnregisteredRound { n: u16 },
     }
 
-    #[derive(Debug, Error)]
+    #[derive(Debug, displaydoc::Display)]
+    #[cfg_attr(feature = "std", derive(thiserror::Error))]
     pub(super) enum Bug {
-        #[error(
+        #[displaydoc(
             "message originates from another round: we process messages from round \
             {expected_round}, got message from round {actual_number}"
         )]
@@ -548,17 +553,17 @@ pub mod errors {
             expected_round: u16,
             actual_number: u16,
         },
-        #[error("state is incoherent, it's expected to be {expected}: {justification}")]
+        #[displaydoc("state is incoherent, it's expected to be {expected}: {justification}")]
         IncoherentState {
             expected: &'static str,
             justification: &'static str,
         },
-        #[error("mismatched output type")]
+        #[displaydoc("mismatched output type")]
         MismatchedOutputType,
-        #[error("mismatched error type")]
+        #[displaydoc("mismatched error type")]
         MismatchedErrorType,
-        #[error("take round result")]
-        TakeRoundResult(#[source] TakeOutputError),
+        #[displaydoc("take round result")]
+        TakeRoundResult(#[cfg_attr(feature = "std", source)] TakeOutputError),
     }
 
     impl<ProcessErr, IoErr> CompleteRoundError<ProcessErr, IoErr> {
@@ -617,7 +622,7 @@ mod tests {
     impl super::MessagesStore for Store {
         type Msg = Msg1;
         type Output = ();
-        type Error = ();
+        type Error = core::convert::Infallible;
 
         fn add_message(&mut self, _msg: crate::Incoming<Self::Msg>) -> Result<(), Self::Error> {
             Ok(())

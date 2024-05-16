@@ -6,3 +6,6 @@ members = [
     "round-based-derive",
     "examples/random-generation-protocol",
 ]
+exclude = [
+    "wasm/no_std",
+]
