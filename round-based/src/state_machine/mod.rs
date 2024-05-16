@@ -1,4 +1,9 @@
-//! Wraps the protocol and provides sync API to execute it
+//! Wraps the protocol defined as async function and provides sync API to execute it
+//!
+//! In `round_based` framework, MPC protocols are defined as async function. However, sometimes it
+//! may not be possible/desirable to have async runtime which drives the futures until completion.
+//! For such use-cases, we provide [`wrap_protocol`] function that wraps an MPC protocol defined as
+//! async function and returns the [`StateMachine`] that exposes sync API to carry out the protocol.
 
 mod delivery;
 mod noop_waker;
@@ -176,6 +181,13 @@ pub type Delivery<M> = (Incomings<M>, Outgoings<M>);
 pub type MpcParty<M> = crate::MpcParty<M, Delivery<M>, Runtime<M>>;
 
 /// Wraps the protocol and provides sync API to execute it
+///
+/// Protocol is an async function that takes [`MpcParty`] as input. `MpcParty` contains
+/// channels (of incoming and outgoing messages) that protocol is expected to use, and
+/// a [`Runtime`]. Protocol is only allowed to `.await` on futures provided in `MpcParty`,
+/// such as polling next message from provided steam of incoming messages. If protocol
+/// polls an unknown future, executor won't know what to do with that, the protocol will
+/// be aborted and error returned.
 pub fn wrap_protocol<'a, M, F>(
     protocol: impl FnOnce(MpcParty<M>) -> F,
 ) -> impl StateMachine<Output = F::Output, Msg = M> + 'a
