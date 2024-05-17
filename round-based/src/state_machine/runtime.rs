@@ -11,7 +11,7 @@ impl<M> Runtime<M> {
     }
 }
 
-impl<'a, M> crate::runtime::AsyncRuntime for Runtime<M> {
+impl<M> crate::runtime::AsyncRuntime for Runtime<M> {
     type YieldNowFuture = YieldNow<M>;
 
     fn yield_now(&self) -> Self::YieldNowFuture {
@@ -28,7 +28,7 @@ pub struct YieldNow<M> {
     yielded: bool,
 }
 
-impl<'a, M> core::future::Future for YieldNow<M> {
+impl<M> core::future::Future for YieldNow<M> {
     type Output = ();
 
     fn poll(

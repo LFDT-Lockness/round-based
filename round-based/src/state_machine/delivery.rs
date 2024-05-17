@@ -37,7 +37,7 @@ impl<M> Outgoings<M> {
     }
 }
 
-impl<'a, M> crate::Sink<crate::Outgoing<M>> for Outgoings<M> {
+impl<M> crate::Sink<crate::Outgoing<M>> for Outgoings<M> {
     type Error = SendErr;
 
     fn poll_ready(
