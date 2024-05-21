@@ -151,7 +151,7 @@ impl<'a, M> CanSchedule<&'a SharedStateRef<M>> {
     }
 
     /// Indicated that the protocol needs more messages from other parties
-    pub fn protocol_needs_more_msgs(self) -> Poll<crate::Incoming<M>> {
+    pub fn protocol_needs_one_more_msg(self) -> Poll<crate::Incoming<M>> {
         let mut s = self.borrow_mut();
         match s.incoming_msg.take() {
             Some(msg) => Poll::Ready(msg),
@@ -173,7 +173,7 @@ impl<'a, M> CanSchedule<&'a SharedStateRef<M>> {
 mod test {
     use core::task::Poll;
 
-    use crate::{MessageDestination, Outgoing};
+    use crate::{Incoming, MessageDestination, Outgoing};
 
     use super::SharedStateRef;
 
@@ -212,6 +212,75 @@ mod test {
     }
 
     #[test]
+    fn recv_msg() {
+        let shared_state = SharedStateRef::<&'static str>::new();
+
+        let incomings_state = shared_state.clone();
+        let executor_state = shared_state;
+
+        // Request incoming msg
+        {
+            let Poll::Ready(scheduler) = incomings_state.can_schedule() else {
+                panic!("can't schedule");
+            };
+            let Poll::Pending = scheduler.protocol_needs_one_more_msg() else {
+                panic!("unexpected incoming msg");
+            };
+        }
+
+        // Scheduling one more task is not possible until incoming msg is received
+        assert!(matches!(incomings_state.can_schedule(), Poll::Pending));
+
+        // Executor receives an incoming msg
+        let incoming_msg = Incoming {
+            id: 0,
+            sender: 1,
+            msg_type: crate::MessageType::Broadcast,
+            msg: "hello",
+        };
+        executor_state.executor_received_msg(incoming_msg).unwrap();
+
+        // Incoming msg becomes available to the protocol
+        {
+            let Poll::Ready(scheduler) = incomings_state.can_schedule() else {
+                panic!("can't schedule");
+            };
+            let Poll::Ready(msg) = scheduler.protocol_needs_one_more_msg() else {
+                panic!("no incoming msg");
+            };
+            assert_eq!(msg, incoming_msg)
+        }
+    }
+
+    #[test]
+    fn yielding() {
+        let shared_state = SharedStateRef::<()>::new();
+
+        let runtime_state = shared_state.clone();
+        let executor_state = shared_state;
+
+        // Request yielding
+        {
+            let Poll::Ready(scheduler) = runtime_state.can_schedule() else {
+                panic!("can't schedule");
+            };
+            scheduler.protocol_yields();
+        }
+
+        // Scheduling one more task is not possible until yield flag is reset
+        assert!(matches!(runtime_state.can_schedule(), Poll::Pending));
+
+        // Executor reads and resets the yielded flag
+        {
+            let yielded = executor_state.executor_reads_and_resets_yielded_flag();
+            assert!(yielded);
+        }
+
+        // Now, work can be scheduled again...
+        assert!(matches!(executor_state.can_schedule(), Poll::Ready(_)));
+    }
+
+    #[test]
     fn task_cannot_be_scheduled_when_another_task_is_scheduled() {
         let try_obtain_lock_and_fail = |shared_state: &SharedStateRef<u32>| {
             let Poll::Pending = shared_state.can_schedule() else {
@@ -245,7 +314,7 @@ mod test {
             let Poll::Ready(scheduler) = shared_state.can_schedule() else {
                 panic!("can't schedule");
             };
-            let Poll::Pending = scheduler.protocol_needs_more_msgs() else {
+            let Poll::Pending = scheduler.protocol_needs_one_more_msg() else {
                 panic!("receiving resolved too early")
             };
 

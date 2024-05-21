@@ -21,7 +21,7 @@ impl<M> crate::Stream for Incomings<M> {
         let scheduler = ready!(self.shared_state.can_schedule());
 
         scheduler
-            .protocol_needs_more_msgs()
+            .protocol_needs_one_more_msg()
             .map(|msg| Some(Ok(msg)))
     }
 }
