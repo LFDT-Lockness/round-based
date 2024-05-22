@@ -35,7 +35,8 @@ tokio = { version = "1", features = ["macros"] }
 
 [features]
 default = ["std"]
-dev = ["tokio/sync", "tokio-stream"]
+state-machine = []
+dev = ["std", "tokio/sync", "tokio-stream"]
 derive = ["round-based-derive"]
 runtime-tokio = ["tokio"]
 std = ["thiserror"]

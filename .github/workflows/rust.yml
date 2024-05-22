@@ -60,7 +60,7 @@ jobs:
       with:
         cache-on-failure: "true"
     - name: Run clippy
-      run: cargo clippy --all --lib
+      run: cargo clippy --all --lib --all-features -- -D clippy::all
 
   build-wasm-nostd:
     runs-on: ubuntu-latest

@@ -1,7 +1,9 @@
 ## v0.3.0
 * Add no_std and wasm support [#6]
+* Add state machine wrapper that provides sync API to carry out the protocol defined as async function [#7]
 
 [#6]: https://github.com/dfns/round-based/pull/6
+[#7]: https://github.com/dfns/round-based/pull/7
 
 ## v0.2.2
 

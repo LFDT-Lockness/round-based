@@ -169,6 +169,7 @@ where
         }
     }
 
+    #[allow(clippy::type_complexity)]
     fn retrieve_round_output_if_its_completed<R>(
         &mut self,
     ) -> Option<Result<R::Output, CompleteRoundError<R::Error, E>>>
@@ -321,6 +322,7 @@ trait ProcessRoundMessage {
     /// * `Ok(Ok(any))` — round is successfully completed, `any` needs to be downcasted to `MessageStore::Output`
     /// * `Ok(Err(any))` — round has terminated with an error, `any` needs to be downcasted to `CompleteRoundError<MessageStore::Error>`
     /// * `Err(err)` — couldn't retrieve the output, see [`TakeOutputError`]
+    #[allow(clippy::type_complexity)]
     fn take_output(&mut self) -> Result<Result<Box<dyn Any>, Box<dyn Any>>, TakeOutputError>;
 }
 

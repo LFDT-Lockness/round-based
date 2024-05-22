@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 random-generation-protocol = { path = "../../examples/random-generation-protocol" }
+round-based = { path = "../../round-based", default-features = false, features = ["state-machine", "derive"] }

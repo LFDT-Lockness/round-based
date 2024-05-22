@@ -106,7 +106,6 @@ pub struct MpcParty<M, D, R = runtime::DefaultRuntime> {
 
 impl<M, D> MpcParty<M, D>
 where
-    M: Send + 'static,
     D: Delivery<M>,
 {
     /// Party connected to the network
@@ -123,7 +122,6 @@ where
 
 impl<M, D, X> MpcParty<M, D, X>
 where
-    M: Send + 'static,
     D: Delivery<M>,
 {
     /// Specifies a [async runtime](runtime)
