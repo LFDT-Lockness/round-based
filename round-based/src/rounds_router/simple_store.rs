@@ -201,7 +201,7 @@ impl<M> RoundMsgs<M> {
     }
 
     /// Returns iterator over received messages plus party's own message
-    pub fn into_iter_including_me<'m>(self, my_msg: M) -> impl Iterator<Item = M> {
+    pub fn into_iter_including_me(self, my_msg: M) -> impl Iterator<Item = M> {
         struct InsertsAfter<T, It> {
             offset: usize,
             inner: It,
@@ -224,7 +224,7 @@ impl<M> RoundMsgs<M> {
         InsertsAfter {
             offset: usize::from(self.i),
             inner: self.messages.into_iter(),
-            item: Some(my_msg)
+            item: Some(my_msg),
         }
     }
 
