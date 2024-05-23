@@ -74,3 +74,10 @@ jobs:
     - name: Build on wasm32-unknown-unknown (no_std)
       run:
         (cd wasm/no_std && cargo build --target wasm32-unknown-unknown)
+
+  check-changelog:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Check changelogs
+      run: ./.github/changelog.sh
