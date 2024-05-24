@@ -646,6 +646,6 @@ mod tests {
         let round1 = rounds.add_round(Store);
         let mut rounds = rounds.listen(incomings);
 
-        let _ = rounds.complete(round1).await.unwrap();
+        rounds.complete(round1).await.unwrap();
     }
 }

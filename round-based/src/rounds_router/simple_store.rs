@@ -200,6 +200,34 @@ impl<M> RoundMsgs<M> {
             .chain(self.messages.iter().skip(usize::from(self.i)))
     }
 
+    /// Returns iterator over received messages plus party's own message
+    pub fn into_iter_including_me(self, my_msg: M) -> impl Iterator<Item = M> {
+        struct InsertsAfter<T, It> {
+            offset: usize,
+            inner: It,
+            item: Option<T>,
+        }
+        impl<T, It: Iterator<Item = T>> Iterator for InsertsAfter<T, It> {
+            type Item = T;
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.offset == 0 {
+                    match self.item.take() {
+                        Some(x) => Some(x),
+                        None => self.inner.next(),
+                    }
+                } else {
+                    self.offset -= 1;
+                    self.inner.next()
+                }
+            }
+        }
+        InsertsAfter {
+            offset: usize::from(self.i),
+            inner: self.messages.into_iter(),
+            item: Some(my_msg),
+        }
+    }
+
     /// Returns iterator over messages with sender indexes
     ///
     /// Iterator yields `(sender_index, msg_id, message)`
@@ -457,5 +485,35 @@ mod tests {
                 msg: Msg(1),
             })
             .unwrap();
+    }
+
+    #[test]
+    fn into_iter_including_me() {
+        let me = -10_isize;
+        let messages = alloc::vec![1, 2, 3];
+
+        let me_first = super::RoundMsgs {
+            i: 0,
+            ids: alloc::vec![1, 2, 3],
+            messages: messages.clone(),
+        };
+        let all = me_first.into_iter_including_me(me).collect::<Vec<_>>();
+        assert_eq!(all, [-10, 1, 2, 3]);
+
+        let me_second = super::RoundMsgs {
+            i: 1,
+            ids: alloc::vec![0, 2, 3],
+            messages: messages.clone(),
+        };
+        let all = me_second.into_iter_including_me(me).collect::<Vec<_>>();
+        assert_eq!(all, [1, -10, 2, 3]);
+
+        let me_last = super::RoundMsgs {
+            i: 3,
+            ids: alloc::vec![0, 1, 2],
+            messages: messages.clone(),
+        };
+        let all = me_last.into_iter_including_me(me).collect::<Vec<_>>();
+        assert_eq!(all, [1, 2, 3, -10]);
     }
 }
