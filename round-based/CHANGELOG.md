@@ -1,3 +1,8 @@
+## v0.3.2
+* Update links in crate settings, update readme [#11]
+
+[#11]: https://github.com/LFDT-Lockness/round-based/pull/11
+
 ## v0.3.1
 * Add `rounds_router::simple_store::RoundMsgs::into_iter_including_me()` [#9]
 
