@@ -1,6 +1,7 @@
 //! ![License: MIT](https://img.shields.io/crates/l/round-based.svg)
 //! [![Docs](https://docs.rs/round-based/badge.svg)](https://docs.rs/round-based)
 //! [![Crates io](https://img.shields.io/crates/v/round-based.svg)](https://crates.io/crates/round-based)
+//! [![Discord](https://img.shields.io/discord/905194001349627914?logo=discord&logoColor=ffffff&label=Discord)](https://discordapp.com/channels/905194001349627914/1285268686147424388)
 //!
 //! An MPC framework that unifies and simplifies the way of developing and working with
 //! multiparty protocols (e.g. threshold signing, random beacons, etc.).
@@ -36,6 +37,9 @@
 //!
 //! * `dev` enables development tools such as [protocol simulation](simulation)
 //! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](runtime)
+//!
+//! ## Join us in Discord!
+//! Feel free to reach out to us [in Discord](https://discordapp.com/channels/905194001349627914/1285268686147424388)!
 
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg, doc_cfg_hide))]
 #![forbid(unused_crate_dependencies, missing_docs)]
