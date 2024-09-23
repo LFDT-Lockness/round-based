@@ -39,4 +39,4 @@ the documentation of the protocol you're using), but usually they are:
 * `runtime-tokio` enables tokio-specific implementation of async runtime
 
 ## Join us in Discord!
-Feel free to reach out to us in Discord!
+Feel free to reach out to us [in Discord](https://discordapp.com/channels/905194001349627914/1285268686147424388)!

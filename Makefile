@@ -11,6 +11,6 @@ docs-open:
 
 readme:
 	cargo readme -i src/lib.rs -r round-based/ -t ../docs/readme.tpl --no-indent-headings \
-		| perl -ne 's/(?<!!)\[([^\[]+?)\]\([^\(]+?\)/\1/g; print;' \
+		| perl -ne 's/(?<!!)\[([^\[]+?)\]\((?!https:)[^\(]+?\)/\1/g; print;' \
 		| perl -ne 's/\[([^\[]+?)\](?!\()/\1/g; print;' \
 		> README.md
