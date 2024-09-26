@@ -2,10 +2,14 @@
 
 Thanks for taking interest to contributing to our project!
 
+## Join us in Discord!
+We welcome all contributors to communicate with us [in Discord]! Please, reach out to us
+in `#lockness-contribute` room.
+
 ## Pull Requests
-Prior to making a PR, we ask you to communicate it with us, preferably by opening an issue.
-This would help to keep your work aligned with the maintainers view and get insights from
-them.
+Prior to making a PR, we ask you to communicate it with us, either [in Discord] or, if you
+prefer, by opening an issue in the repo. This would help to keep your work aligned with the
+maintainers view and avoid situations in which we can't accept your contribution.
 
 All commits are required to be signed via verified GPG key. You can read about commit signing
 in [this series of articles](https://docs.github.com/en/authentication/managing-commit-signature-verification)
@@ -62,3 +66,7 @@ communicate with us for other reasons.
 However, if you want to report something that you believe might be a security
 vulnerability or a security flaw in this or any upstream project, please report
 it following the procedure described in [SECURITY.md](./SECURITY.md).
+
+Feel free to reach out to us [in Discord] as well.
+
+[in Discord]: https://discordapp.com/channels/905194001349627914/1285268686147424388
