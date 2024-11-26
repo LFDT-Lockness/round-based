@@ -1,3 +1,8 @@
+## v0.4.0
+* Improve ergonomics of protocol simulation, which is used for writing tests [#14]
+
+[#14]: https://github.com/LFDT-Lockness/round-based/pull/14
+
 ## v0.3.2
 * Update links in crate settings, update readme [#11]
 
