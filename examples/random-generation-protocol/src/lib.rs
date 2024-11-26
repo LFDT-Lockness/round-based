@@ -173,13 +173,10 @@ pub struct Blame {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{vec, vec::Vec};
-
     use rand::Rng;
-    use round_based::simulation::Simulation;
     use sha2::{Digest, Sha256};
 
-    use super::{protocol_of_random_generation, Msg};
+    use super::protocol_of_random_generation;
 
     #[tokio::test]
     async fn simulation_async() {
@@ -187,42 +184,28 @@ mod tests {
 
         let n: u16 = 5;
 
-        let mut simulation = Simulation::<Msg>::new();
-        let mut party_output = vec![];
+        let randomness = round_based::simulation::run_with_setup(
+            core::iter::repeat_with(|| rng.fork()).take(n.into()),
+            |i, party, rng| protocol_of_random_generation(party, i, n, rng),
+        )
+        .await
+        .expect_success()
+        .expect_same();
 
-        for i in 0..n {
-            let party = simulation.add_party();
-            let output = protocol_of_random_generation(party, i, n, rng.fork());
-            party_output.push(output);
-        }
-
-        let output = futures::future::try_join_all(party_output).await.unwrap();
-
-        // Assert that all parties outputed the same randomness
-        for i in 1..n {
-            assert_eq!(output[0], output[usize::from(i)]);
-        }
-
-        std::println!("Output randomness: {}", hex::encode(output[0]));
+        std::println!("Output randomness: {}", hex::encode(randomness));
     }
 
     #[test]
     fn simulation_sync() {
         let mut rng = rand_dev::DevRng::new();
 
-        let simulation = round_based::simulation::SimulationSync::from_async_fn(5, |i, party| {
+        round_based::simulation::SimulationSync::from_async_fn(5, |i, party| {
             protocol_of_random_generation(party, i, 5, rng.fork())
-        });
-
-        let outputs = simulation
-            .run()
-            .unwrap()
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-        for output_i in &outputs {
-            assert_eq!(*output_i, outputs[0]);
-        }
+        })
+        .run()
+        .unwrap()
+        .expect_success()
+        .expect_same();
     }
 
     // Emulate the protocol using the state machine interface

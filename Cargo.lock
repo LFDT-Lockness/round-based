@@ -455,7 +455,6 @@ name = "random-generation-protocol"
 version = "0.1.0"
 dependencies = [
  "displaydoc",
- "futures",
  "generic-array",
  "hex",
  "rand",
@@ -475,8 +474,11 @@ dependencies = [
  "displaydoc",
  "futures",
  "futures-util",
+ "hex",
  "matches",
  "phantom-type",
+ "rand",
+ "rand_dev",
  "round-based-derive",
  "thiserror",
  "tokio",

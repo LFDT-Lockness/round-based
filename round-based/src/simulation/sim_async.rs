@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use core::{
+    future::Future,
     pin::Pin,
     sync::atomic::AtomicU64,
     task::ready,
@@ -13,14 +14,16 @@ use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 use crate::delivery::{Delivery, Incoming, Outgoing};
 use crate::{MessageDestination, MessageType, MpcParty, MsgId, PartyIndex};
 
-/// Multiparty protocol simulator
-pub struct Simulation<M> {
+use super::SimResult;
+
+/// Simulated async network
+pub struct Network<M> {
     channel: broadcast::Sender<Outgoing<Incoming<M>>>,
     next_party_idx: PartyIndex,
     next_msg_id: Arc<NextMessageId>,
 }
 
-impl<M> Simulation<M>
+impl<M> Network<M>
 where
     M: Clone + Send + Unpin + 'static,
 {
@@ -71,7 +74,7 @@ where
     }
 }
 
-impl<M> Default for Simulation<M>
+impl<M> Default for Network<M>
 where
     M: Clone + Send + Unpin + 'static,
 {
@@ -175,4 +178,128 @@ impl NextMessageId {
     pub fn next(&self) -> MsgId {
         self.0.fetch_add(1, core::sync::atomic::Ordering::Relaxed)
     }
+}
+
+/// Simulates execution of the protocol
+///
+/// Takes amount of participants, and a function that carries out the protocol for
+/// one party. The function takes as input: index of the party, and [`MpcParty`]
+/// that can be used to communicate with others.
+///
+/// ## Example
+/// ```rust,no_run
+/// # #[tokio::main(flavor = "current_thread")]
+/// # async fn main() {
+/// use round_based::{Mpc, PartyIndex};
+///
+/// # type Result<T, E = ()> = std::result::Result<T, E>;
+/// # type Randomness = [u8; 32];
+/// # type Msg = ();
+/// // Any MPC protocol you want to test
+/// pub async fn protocol_of_random_generation<M>(
+///     party: M,
+///     i: PartyIndex,
+///     n: u16
+/// ) -> Result<Randomness>
+/// where
+///     M: Mpc<ProtocolMessage = Msg>
+/// {
+///     // ...
+/// # todo!()
+/// }
+///
+/// let n = 3;
+///
+/// let output = round_based::simulation::run(
+///     n,
+///     |i, party| protocol_of_random_generation(party, i, n),
+/// )
+/// .await
+/// // unwrap `Result`s
+/// .expect_success()
+/// // check that all parties produced the same response
+/// .expect_same();
+///
+/// println!("Output randomness: {}", hex::encode(output));
+/// # }  
+/// ```
+pub async fn run<M, F>(
+    n: u16,
+    mut party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>) -> F,
+) -> SimResult<F::Output>
+where
+    M: Clone + Send + Unpin + 'static,
+    F: Future,
+{
+    run_with_setup::<(), M, F>(core::iter::repeat(()).take(n.into()), |i, party, ()| {
+        party_start(i, party)
+    })
+    .await
+}
+
+/// Simulates execution of the protocol
+///
+/// Similar to [`run`], but allows some setup to be provided to the protocol execution
+/// function.
+///
+/// Simulation will have as many parties as `setups` iterator yields
+///
+/// ## Example
+/// ```rust,no_run
+/// # #[tokio::main(flavor = "current_thread")]
+/// # async fn main() {
+/// use round_based::{Mpc, PartyIndex};
+///
+/// # type Result<T, E = ()> = std::result::Result<T, E>;
+/// # type Randomness = [u8; 32];
+/// # type Msg = ();
+/// // Any MPC protocol you want to test
+/// pub async fn protocol_of_random_generation<M>(
+///     rng: impl rand::RngCore,
+///     party: M,
+///     i: PartyIndex,
+///     n: u16
+/// ) -> Result<Randomness>
+/// where
+///     M: Mpc<ProtocolMessage = Msg>
+/// {
+///     // ...
+/// # todo!()
+/// }
+///
+/// let mut rng = rand_dev::DevRng::new();
+/// let n = 3;
+/// let output = round_based::simulation::run_with_setup(
+///     core::iter::repeat_with(|| rng.fork()).take(n.into()),
+///     |i, party, rng| protocol_of_random_generation(rng, party, i, n),
+/// )
+/// .await
+/// // unwrap `Result`s
+/// .expect_success()
+/// // check that all parties produced the same response
+/// .expect_same();
+///
+/// println!("Output randomness: {}", hex::encode(output));
+/// # }  
+/// ```
+pub async fn run_with_setup<S, M, F>(
+    setups: impl IntoIterator<Item = S>,
+    mut party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>, S) -> F,
+) -> SimResult<F::Output>
+where
+    M: Clone + Send + Unpin + 'static,
+    F: Future,
+{
+    let mut network = Network::<M>::new();
+
+    let mut output = alloc::vec![];
+    for (setup, i) in setups.into_iter().zip(0u16..) {
+        output.push({
+            let party = network.add_party();
+            party_start(i, party, setup)
+        });
+    }
+
+    let result = futures_util::future::join_all(output).await;
+    SimResult(result)
 }

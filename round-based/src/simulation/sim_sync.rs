@@ -2,6 +2,8 @@ use alloc::{boxed::Box, collections::VecDeque, vec, vec::Vec};
 
 use crate::{state_machine::ProceedResult, Incoming, MessageDestination, MessageType, Outgoing};
 
+use super::SimResult;
+
 /// Simulates MPC protocol with parties defined as [state machines](crate::state_machine)
 pub struct SimulationSync<'a, O, M> {
     parties: Vec<Party<'a, O, M>>,
@@ -87,7 +89,7 @@ where
     }
 
     /// Carries out the simulation
-    pub fn run(mut self) -> Result<Vec<O>, SimulationSyncError> {
+    pub fn run(mut self) -> Result<SimResult<O>, SimulationSyncError> {
         let mut messages_queue = MessagesQueue::new(self.parties.len());
         let mut parties_left = self.parties.len();
 
@@ -138,16 +140,17 @@ where
             }
         }
 
-        Ok(self
-            .parties
-            .into_iter()
-            .map(|party| match party {
-                Party::Active { .. } => {
-                    unreachable!("there must be no active parties when `parties_left == 0`")
-                }
-                Party::Finished(out) => out,
-            })
-            .collect())
+        Ok(SimResult(
+            self.parties
+                .into_iter()
+                .map(|party| match party {
+                    Party::Active { .. } => {
+                        unreachable!("there must be no active parties when `parties_left == 0`")
+                    }
+                    Party::Finished(out) => out,
+                })
+                .collect(),
+        ))
     }
 }
 
