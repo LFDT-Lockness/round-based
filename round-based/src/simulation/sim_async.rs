@@ -216,9 +216,9 @@ impl NextMessageId {
 /// )
 /// .await
 /// // unwrap `Result`s
-/// .expect_success()
+/// .expect_ok()
 /// // check that all parties produced the same response
-/// .expect_same();
+/// .expect_eq();
 ///
 /// println!("Output randomness: {}", hex::encode(output));
 /// # }  
@@ -275,9 +275,9 @@ where
 /// )
 /// .await
 /// // unwrap `Result`s
-/// .expect_success()
+/// .expect_ok()
 /// // check that all parties produced the same response
-/// .expect_same();
+/// .expect_eq();
 ///
 /// println!("Output randomness: {}", hex::encode(output));
 /// # }  

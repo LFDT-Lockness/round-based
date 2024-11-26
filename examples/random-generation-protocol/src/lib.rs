@@ -189,8 +189,8 @@ mod tests {
             |i, party, rng| protocol_of_random_generation(party, i, n, rng),
         )
         .await
-        .expect_success()
-        .expect_same();
+        .expect_ok()
+        .expect_eq();
 
         std::println!("Output randomness: {}", hex::encode(randomness));
     }
@@ -204,8 +204,8 @@ mod tests {
         })
         .run()
         .unwrap()
-        .expect_success()
-        .expect_same();
+        .expect_ok()
+        .expect_eq();
     }
 
     // Emulate the protocol using the state machine interface

@@ -43,9 +43,9 @@
 //! )
 //! .await
 //! // unwrap `Result`s
-//! .expect_success()
+//! .expect_ok()
 //! // check that all parties produced the same response
-//! .expect_same();
+//! .expect_eq();
 //!
 //! println!("Output randomness: {}", hex::encode(output));
 //! # }  
@@ -71,7 +71,7 @@ where
     /// Panics if at least one of the parties returned `Err(_)`. In this case,
     /// a verbose error message will shown specifying which of the parties returned
     /// an error.
-    pub fn expect_success(self) -> SimResult<T> {
+    pub fn expect_ok(self) -> SimResult<T> {
         let mut oks = alloc::vec::Vec::with_capacity(self.0.len());
         let mut errs = alloc::vec::Vec::with_capacity(self.0.len());
 
@@ -113,7 +113,7 @@ where
     /// panics with a verbose error message.
     ///
     /// Panics if simulation contained zero parties.
-    pub fn expect_same(mut self) -> T {
+    pub fn expect_eq(mut self) -> T {
         let Some(first) = self.0.first() else {
             panic!("simulation contained zero parties");
         };
