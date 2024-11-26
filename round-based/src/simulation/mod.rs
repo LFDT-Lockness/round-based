@@ -114,16 +114,16 @@ where
     ///
     /// Panics if simulation contained zero parties.
     pub fn expect_same(mut self) -> T {
-        let Some(first) = self.0.get(0) else {
+        let Some(first) = self.0.first() else {
             panic!("simulation contained zero parties");
         };
 
         if !self.0[1..].iter().all(|i| i == first) {
-            let mut msg = alloc::format!(
+            let mut msg = alloc::string::String::from(
                 "Simulation output didn't match expectations.\n\
                 Expected: all parties return the same output\n\
                 Actual  : some of the parties returned a different output\n\
-                Outputs :\n"
+                Outputs :\n",
             );
 
             for (i, res) in self.0.iter().enumerate() {
