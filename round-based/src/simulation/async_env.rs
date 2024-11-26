@@ -1,3 +1,68 @@
+//! Fully async simulation
+//!
+//! Simulation provided in a [parent module](super) should be used in most cases. It works
+//! by converting all parties (defined as async functions) into [state machines](crate::state_machine),
+//! which has certain limitations. In particular, the protocol cannot await on any futures that
+//! aren't provided by [`MpcParty`](crate::MpcParty), for instance, awaiting on the timer will
+//! cause a simulation error.
+//!
+//! We suggest to avoid awaiting on the futures that aren't provided by `MpcParty` in the MPC protocol
+//! implementation as it likely makes it runtime-dependent. However, if you do ultimately need to
+//! do that, then you can't use regular simulation for the tests.
+//!
+//! This module provides fully async simulation built for tokio runtime, so the protocol can await
+//! on any futures supported by the tokio.
+//!
+//! ## Limitations
+//! To implement simulated [network](Network), we used [`tokio::sync::broadcast`] channels, which
+//! have internal buffer of stored messages, and once simulated network receives more messages than
+//! internal buffer can fit, some of the parties will not receive some of the messages, which will
+//! lead to execution error.
+//!
+//! By default, internal buffer is preallocated to fit 500 messages, which should be more than
+//! sufficient for simulating protocols with small amount of parties (say, < 10).
+//!
+//! If you need to preallocate bigger buffer, use [`Network::with_capacity`].
+//!
+//! ## Example
+//! Entry point to the simulation are [`run`] and [`run_with_setup`] functions
+//!
+//! ```rust,no_run
+//! # #[tokio::main(flavor = "current_thread")]
+//! # async fn main() {
+//! use round_based::{Mpc, PartyIndex};
+//!
+//! # type Result<T, E = ()> = std::result::Result<T, E>;
+//! # type Randomness = [u8; 32];
+//! # type Msg = ();
+//! // Any MPC protocol you want to test
+//! pub async fn protocol_of_random_generation<M>(
+//!     party: M,
+//!     i: PartyIndex,
+//!     n: u16
+//! ) -> Result<Randomness>
+//! where
+//!     M: Mpc<ProtocolMessage = Msg>
+//! {
+//!     // ...
+//! # todo!()
+//! }
+//!
+//! let n = 3;
+//!
+//! let output = round_based::simulation::async_env::run(
+//!     n,
+//!     |i, party| protocol_of_random_generation(party, i, n),
+//! )
+//! .await
+//! // unwrap `Result`s
+//! .expect_ok()
+//! // check that all parties produced the same response
+//! .expect_eq();
+//!
+//! println!("Output randomness: {}", hex::encode(output));
+//! # }  
+//! ```
 use alloc::sync::Arc;
 use core::{
     future::Future,
@@ -15,6 +80,8 @@ use crate::delivery::{Delivery, Incoming, Outgoing};
 use crate::{MessageDestination, MessageType, MpcParty, MsgId, PartyIndex};
 
 use super::SimResult;
+
+const DEFAULT_CAPACITY: usize = 500;
 
 /// Simulated async network
 pub struct Network<M> {
@@ -210,7 +277,7 @@ impl NextMessageId {
 ///
 /// let n = 3;
 ///
-/// let output = round_based::simulation::run(
+/// let output = round_based::simulation::async_env::run(
 ///     n,
 ///     |i, party| protocol_of_random_generation(party, i, n),
 /// )
@@ -225,15 +292,34 @@ impl NextMessageId {
 /// ```
 pub async fn run<M, F>(
     n: u16,
+    party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>) -> F,
+) -> SimResult<F::Output>
+where
+    M: Clone + Send + Unpin + 'static,
+    F: Future,
+{
+    run_with_capacity(DEFAULT_CAPACITY, n, party_start).await
+}
+
+/// Simulates execution of the protocol
+///
+/// Same as [`run`] but also takes a capacity of internal buffer to be used
+/// within simulated network. Size of internal buffer should fit total amount of the
+/// messages sent by all participants during the whole protocol execution.
+pub async fn run_with_capacity<M, F>(
+    capacity: usize,
+    n: u16,
     mut party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>) -> F,
 ) -> SimResult<F::Output>
 where
     M: Clone + Send + Unpin + 'static,
     F: Future,
 {
-    run_with_setup::<(), M, F>(core::iter::repeat(()).take(n.into()), |i, party, ()| {
-        party_start(i, party)
-    })
+    run_with_capacity_and_setup(
+        capacity,
+        core::iter::repeat(()).take(n.into()),
+        |i, party, ()| party_start(i, party),
+    )
     .await
 }
 
@@ -269,7 +355,7 @@ where
 ///
 /// let mut rng = rand_dev::DevRng::new();
 /// let n = 3;
-/// let output = round_based::simulation::run_with_setup(
+/// let output = round_based::simulation::async_env::run_with_setup(
 ///     core::iter::repeat_with(|| rng.fork()).take(n.into()),
 ///     |i, party, rng| protocol_of_random_generation(rng, party, i, n),
 /// )
@@ -284,13 +370,30 @@ where
 /// ```
 pub async fn run_with_setup<S, M, F>(
     setups: impl IntoIterator<Item = S>,
+    party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>, S) -> F,
+) -> SimResult<F::Output>
+where
+    M: Clone + Send + Unpin + 'static,
+    F: Future,
+{
+    run_with_capacity_and_setup::<S, M, F>(DEFAULT_CAPACITY, setups, party_start).await
+}
+
+/// Simulates execution of the protocol
+///
+/// Same as [`run_with_setup`] but also takes a capacity of internal buffer to be used
+/// within simulated network. Size of internal buffer should fit total amount of the
+/// messages sent by all participants during the whole protocol execution.
+pub async fn run_with_capacity_and_setup<S, M, F>(
+    capacity: usize,
+    setups: impl IntoIterator<Item = S>,
     mut party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>, S) -> F,
 ) -> SimResult<F::Output>
 where
     M: Clone + Send + Unpin + 'static,
     F: Future,
 {
-    let mut network = Network::<M>::new();
+    let mut network = Network::<M>::with_capacity(capacity);
 
     let mut output = alloc::vec![];
     for (setup, i) in setups.into_iter().zip(0u16..) {

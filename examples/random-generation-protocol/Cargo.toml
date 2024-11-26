@@ -20,7 +20,7 @@ thiserror = { version = "1", optional = true }
 generic-array = { version = "0.14", features = ["serde"] }
 
 [dev-dependencies]
-round-based = { path = "../../round-based", features = ["derive", "dev", "state-machine"]  }
+round-based = { path = "../../round-based", features = ["derive", "sim", "state-machine"]  }
 tokio = { version = "1.15", features = ["macros", "rt"] }
 hex = "0.4"
 rand_dev = "0.1"

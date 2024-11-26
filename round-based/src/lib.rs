@@ -53,11 +53,13 @@ extern crate alloc;
 #[doc(no_inline)]
 pub use futures_util::{Sink, SinkExt, Stream, StreamExt};
 
-/// Fixes false-positive of `unused_crate_dependencies` lint that only occure in the tests
+/// Fixes false-positive of `unused_crate_dependencies` lint that only occur in the tests
 #[cfg(test)]
 mod false_positives {
     use futures as _;
     use trybuild as _;
+
+    use {hex as _, rand as _, rand_dev as _};
 }
 
 mod delivery;
@@ -67,7 +69,7 @@ pub mod runtime;
 #[cfg(feature = "state-machine")]
 pub mod state_machine;
 
-#[cfg(feature = "dev")]
+#[cfg(feature = "sim")]
 pub mod simulation;
 
 pub use self::delivery::*;

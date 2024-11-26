@@ -178,8 +178,8 @@ mod tests {
 
     use super::protocol_of_random_generation;
 
-    #[tokio::test]
-    async fn simulation_async() {
+    #[test]
+    fn simulation() {
         let mut rng = rand_dev::DevRng::new();
 
         let n: u16 = 5;
@@ -188,24 +188,28 @@ mod tests {
             core::iter::repeat_with(|| rng.fork()).take(n.into()),
             |i, party, rng| protocol_of_random_generation(party, i, n, rng),
         )
-        .await
+        .unwrap()
         .expect_ok()
         .expect_eq();
 
         std::println!("Output randomness: {}", hex::encode(randomness));
     }
 
-    #[test]
-    fn simulation_sync() {
+    #[tokio::test]
+    async fn simulation_async() {
         let mut rng = rand_dev::DevRng::new();
 
-        round_based::simulation::SimulationSync::from_async_fn(5, |i, party| {
-            protocol_of_random_generation(party, i, 5, rng.fork())
-        })
-        .run()
-        .unwrap()
+        let n: u16 = 5;
+
+        let randomness = round_based::simulation::async_env::run_with_setup(
+            core::iter::repeat_with(|| rng.fork()).take(n.into()),
+            |i, party, rng| protocol_of_random_generation(party, i, n, rng),
+        )
+        .await
         .expect_ok()
         .expect_eq();
+
+        std::println!("Output randomness: {}", hex::encode(randomness));
     }
 
     // Emulate the protocol using the state machine interface
