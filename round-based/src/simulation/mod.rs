@@ -235,6 +235,10 @@ where
     /// Constructs a simulation with `n` parties from async function that defines the protocol
     ///
     /// Each party has index `0 <= i < n` and instantiated via provided `init` function
+    ///
+    /// Async function will be converted into a [state machine](crate::state_machine). Because of that,
+    /// it cannot await on any futures that aren't provided by `MpcParty` (that is given as an argument
+    /// to this function).
     pub fn from_async_fn<F>(
         n: u16,
         mut init: impl FnMut(u16, crate::state_machine::MpcParty<M>) -> F,
