@@ -3,8 +3,7 @@
 //! Simulation provided in a [parent module](super) should be used in most cases. It works
 //! by converting all parties (defined as async functions) into [state machines](crate::state_machine),
 //! which has certain limitations. In particular, the protocol cannot await on any futures that
-//! aren't provided by [`MpcParty`](crate::MpcParty), for instance, awaiting on the timer will
-//! cause a simulation error.
+//! aren't provided by [`MpcParty`], for instance, awaiting on the timer will cause a simulation error.
 //!
 //! We suggest to avoid awaiting on the futures that aren't provided by `MpcParty` in the MPC protocol
 //! implementation as it likely makes it runtime-dependent. However, if you do ultimately need to

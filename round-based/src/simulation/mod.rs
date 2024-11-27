@@ -1,17 +1,33 @@
 //! Multiparty protocol simulation
 //!
 //! Simulator is an essential developer tool for testing the multiparty protocol locally.
-//! It covers most of the boilerplate by mocking networking.
+//! It covers most of the boilerplate of emulating MPC protocol execution.
 //!
 //! The entry point is either [`run`] or [`run_with_setup`] functions. They take a protocol
 //! defined as an async function, provide simulated networking, carry out the simulation,
 //! and return the result.
 //!
-//! If you need more control over execution, you can use [`Network`] to simulate the networking
-//! and carry out the protocol manually.
+//! If you need more control over execution, you can use [`Simulation`]. For instance, it allows
+//! creating a simulation that has parties defined by different functions, which is helpful, for
+//! instance, in simulation in presence of an adversary (e.g. one set of parties can be defined
+//! with a regular function/protocol implementation, when the other set of parties may be defined
+//! by other function which emulates adversary behavior).
 //!
-//! When `state-machine` feature is enabled, [`SimulationSync`] is available which can carry out
-//! protocols defined as a state machine.
+//! ## Limitations
+//! [`Simulation`] works by converting each party (defined as an async function) into the
+//! [state machine](crate::state_machine). That should work without problems in most cases, providing
+//! better UX, without requiring an async runtime (simulation is entirely sync).
+//!
+//! However, a protocol wrapped into a state machine cannot poll any futures except provided within
+//! [`MpcParty`](crate::MpcParty) (so it can only await on sending/receiving messages and yielding).
+//! For instance, if the protocol implementation makes use of tokio timers, it will result into an
+//! execution error.
+//!
+//! In general, we do not recommend awaiting on the futures that aren't provided by `MpcParty` in
+//! the MPC protocol implementation, to keep the protocol implementation runtime-agnostic.
+//!
+//! If you do really need to make use of unsupported futures, you can use [`async_env`] instead,
+//! which provides a simulation on tokio runtime, but has its own limitations.
 //!
 //! ## Example
 //! ```rust,no_run
@@ -308,7 +324,7 @@ where
     }
 }
 
-/// Error returned by [`SimulationSync::run`]
+/// Error indicating that simulation failed
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
 pub struct SimError(#[from] Reason);
@@ -385,7 +401,7 @@ impl<M: Clone> MessagesQueue<M> {
 /// Simulates execution of the protocol
 ///
 /// Takes amount of participants, and a function that carries out the protocol for
-/// one party. The function takes as input: index of the party, and [`MpcParty`]
+/// one party. The function takes as input: index of the party, and [`MpcParty`](crate::MpcParty)
 /// that can be used to communicate with others.
 ///
 /// ## Example
