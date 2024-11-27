@@ -10,6 +10,7 @@
     * `.expect_eq()` that checks that all outputs are equally the same
   * When `sim-async` feature is enabled, you can use `round_based::simulation::async_env::{run, run_with_setup, ...}`,
     but typically you don't want to use it
+  * `round_based::simulation::SimulationSync` has been renamed to `round_based::simulation::Simulation`
 
 Migration guidelines:
 * Replace `dev` feature with `sim`
@@ -18,7 +19,7 @@ Migration guidelines:
 * Take advantage of `SimResult::{expect_ok, expect_eq}` to reduce amount of the code
   in your tests
 
-Rather than simulation, there's no breaking changes in this release.
+Other than simulation, there are no breaking changes in this release.
 
 [#14]: https://github.com/LFDT-Lockness/round-based/pull/14
 
