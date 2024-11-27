@@ -40,7 +40,6 @@ rand_dev = "0.1"
 [features]
 default = ["std"]
 state-machine = []
-# dev = ["std", "tokio/sync", "tokio-stream", "futures-util/alloc"]
 sim = ["std", "state-machine"]
 sim-async = ["std", "tokio/sync", "tokio-stream", "futures-util/alloc"]
 derive = ["round-based-derive"]
