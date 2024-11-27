@@ -31,8 +31,6 @@
 //!
 //! ## Example
 //! ```rust,no_run
-//! # #[tokio::main(flavor = "current_thread")]
-//! # async fn main() {
 //! use round_based::{Mpc, PartyIndex};
 //!
 //! # type Result<T, E = ()> = std::result::Result<T, E>;
@@ -57,17 +55,16 @@
 //!     n,
 //!     |i, party| protocol_of_random_generation(party, i, n),
 //! )
-//! .await
+//! .unwrap()
 //! // unwrap `Result`s
 //! .expect_ok()
 //! // check that all parties produced the same response
 //! .expect_eq();
 //!
 //! println!("Output randomness: {}", hex::encode(output));
-//! # }  
 //! ```
 
-use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
+use alloc::{boxed::Box, collections::VecDeque, string::ToString, vec::Vec};
 use core::future::Future;
 
 use crate::{state_machine::ProceedResult, Incoming, MessageDestination, MessageType, Outgoing};
@@ -142,8 +139,36 @@ where
                 Outputs :\n",
             );
 
-            for (i, res) in self.0.iter().enumerate() {
-                msg += &alloc::format!("- Party {i}: {res:?}");
+            let mut clusters: Vec<(&T, Vec<usize>)> = Vec::new();
+            for (i, value) in self.0.iter().enumerate() {
+                match clusters
+                    .iter_mut()
+                    .find(|(cluster_value, _)| *cluster_value == value)
+                    .map(|(_, indexes)| indexes)
+                {
+                    Some(indexes) => indexes.push(i),
+                    None => clusters.push((value, alloc::vec![i])),
+                }
+            }
+
+            for (value, parties) in &clusters {
+                if parties.len() == 1 {
+                    msg += "- Party ";
+                } else {
+                    msg += "- Parties "
+                }
+
+                for (i, is_first) in parties
+                    .iter()
+                    .zip(core::iter::once(true).chain(core::iter::repeat(false)))
+                {
+                    if !is_first {
+                        msg += ", "
+                    }
+                    msg += &i.to_string();
+                }
+
+                msg += &alloc::format!(": {value:?}\n");
             }
 
             panic!("{msg}")
@@ -426,11 +451,11 @@ impl<M: Clone> MessagesQueue<M> {
 ///
 /// let n = 3;
 ///
-/// let output = round_based::simulation::async_env::run(
+/// let output = round_based::simulation::run(
 ///     n,
 ///     |i, party| protocol_of_random_generation(party, i, n),
 /// )
-/// .await
+/// .unwrap()
 /// // unwrap `Result`s
 /// .expect_ok()
 /// // check that all parties produced the same response
@@ -509,4 +534,67 @@ where
     }
 
     sim.run()
+}
+
+#[cfg(test)]
+mod tests {
+    mod expect_eq {
+        use crate::simulation::SimResult;
+
+        #[test]
+        fn all_eq() {
+            let res = SimResult::from(alloc::vec!["same string", "same string", "same string"])
+                .expect_eq();
+            assert_eq!(res, "same string")
+        }
+
+        #[test]
+        #[should_panic]
+        fn empty_res() {
+            SimResult::from(alloc::vec![]).expect_eq()
+        }
+
+        #[test]
+        #[should_panic]
+        fn not_eq() {
+            SimResult::from(alloc::vec![
+                "one result",
+                "one result",
+                "another result",
+                "one result",
+                "and something else",
+            ])
+            .expect_eq();
+        }
+    }
+
+    mod expect_ok {
+        use crate::simulation::SimResult;
+
+        #[test]
+        fn all_ok() {
+            let res = SimResult::<Result<i32, core::convert::Infallible>>::from(alloc::vec![
+                Ok(0),
+                Ok(1),
+                Ok(2)
+            ])
+            .expect_ok()
+            .into_vec();
+
+            assert_eq!(res, [0, 1, 2]);
+        }
+
+        #[test]
+        #[should_panic]
+        fn not_ok() {
+            SimResult::from(alloc::vec![
+                Ok(0),
+                Err("i couldn't do what you asked :("),
+                Ok(2),
+                Ok(3),
+                Err("sorry I was pooping, what did you want?")
+            ])
+            .expect_ok();
+        }
+    }
 }
