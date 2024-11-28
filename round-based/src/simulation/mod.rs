@@ -248,8 +248,7 @@ where
     {
         let mut sim = Self::with_capacity(n);
         for i in 0..n {
-            let party = crate::state_machine::wrap_protocol(|party| init(i, party));
-            sim.add_party(party)
+            sim.add_async_party(|party| init(i, party))
         }
         sim
     }
@@ -278,6 +277,24 @@ where
     ) {
         self.parties.push(Party::Active {
             party: Box::new(party),
+            wants_one_more_msg: false,
+        })
+    }
+
+    /// Adds new party, defined as an async function, into the protocol
+    ///
+    /// New party will be assigned index `i = n - 1` where `n` is amount of parties in the
+    /// simulation after this party was added.
+    ///
+    /// Async function will be converted into a [state machine](crate::state_machine). Because of that,
+    /// it cannot await on any futures that aren't provided by `MpcParty` (that is given as an argument
+    /// to this function).
+    pub fn add_async_party<F>(&mut self, party: impl FnOnce(crate::state_machine::MpcParty<M>) -> F)
+    where
+        F: core::future::Future<Output = O> + 'a,
+    {
+        self.parties.push(Party::Active {
+            party: Box::new(crate::state_machine::wrap_protocol(party)),
             wants_one_more_msg: false,
         })
     }
