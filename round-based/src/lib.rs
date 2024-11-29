@@ -35,7 +35,7 @@
 //!
 //! ## Features
 //!
-//! * `dev` enables development tools such as [protocol simulation](simulation)
+//! * `dev` enables development tools such as [protocol simulation](sim)
 //! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](runtime)
 //!
 //! ## Join us in Discord!
