@@ -70,7 +70,7 @@ pub mod runtime;
 pub mod state_machine;
 
 #[cfg(feature = "sim")]
-pub mod simulation;
+pub mod sim;
 
 pub use self::delivery::*;
 #[doc(no_inline)]

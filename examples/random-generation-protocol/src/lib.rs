@@ -184,7 +184,7 @@ mod tests {
 
         let n: u16 = 5;
 
-        let randomness = round_based::simulation::run_with_setup(
+        let randomness = round_based::sim::run_with_setup(
             core::iter::repeat_with(|| rng.fork()).take(n.into()),
             |i, party, rng| protocol_of_random_generation(party, i, n, rng),
         )
@@ -201,7 +201,7 @@ mod tests {
 
         let n: u16 = 5;
 
-        let randomness = round_based::simulation::async_env::run_with_setup(
+        let randomness = round_based::sim::async_env::run_with_setup(
             core::iter::repeat_with(|| rng.fork()).take(n.into()),
             |i, party, rng| protocol_of_random_generation(party, i, n, rng),
         )

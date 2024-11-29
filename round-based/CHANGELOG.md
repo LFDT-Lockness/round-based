@@ -1,16 +1,17 @@
 ## v0.4.0
 * Improve ergonomics of protocol simulation, which is used for writing tests [#14]
   * Remove `dev` feature, it's replaced with `sim` and `sim-async`
-  * `round_based::Simulation` is renamed and moved to `round_based::simulation::async_env::Network`
-  * Other async simulated network related types are moved to `round_based::simulation::async_env`
-  * Added convenient `round_based::simulation::{run, run_with_setup}` which make simulation very ergonomic
-  * Simulation outputs `round_based::simulation::SimResult`, which has convenient most-common methods:
+  * `round_based::simulation` module is renamed into `round_based::sim`
+  * `round_based::simulation::Simulation` is renamed and moved to `round_based::sim::async_env::Network`
+  * Other async simulated network related types are moved to `round_based::sim::async_env`
+  * Added convenient `round_based::sim::{run, run_with_setup}` which make simulation very ergonomic
+  * Simulation outputs `round_based::sim::SimResult`, which has convenient most-common methods:
     * `.expect_ok()` that unwraps all results, and if any party returned an error, panics with a verbose
       error message
     * `.expect_eq()` that checks that all outputs are equally the same
-  * When `sim-async` feature is enabled, you can use `round_based::simulation::async_env::{run, run_with_setup, ...}`,
-    but typically you don't want to use it
-  * `round_based::simulation::SimulationSync` has been renamed to `round_based::simulation::Simulation`
+  * When `sim-async` feature is enabled, you can use `round_based::sim::async_env::{run, run_with_setup, ...}`,
+    but typically you don't want to use them
+  * `round_based::simulation::SimulationSync` has been renamed to `round_based::sim::Simulation`
 
 Migration guidelines:
 * Replace `dev` feature with `sim`

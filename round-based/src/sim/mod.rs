@@ -51,7 +51,7 @@
 //!
 //! let n = 3;
 //!
-//! let output = round_based::simulation::run(
+//! let output = round_based::sim::run(
 //!     n,
 //!     |i, party| protocol_of_random_generation(party, i, n),
 //! )
@@ -184,6 +184,21 @@ impl<T> SimResult<T> {
     /// Deconstructs the simulation result returning inner list of results
     pub fn into_vec(self) -> Vec<T> {
         self.0
+    }
+}
+
+impl<T> IntoIterator for SimResult<T> {
+    type Item = T;
+    type IntoIter = alloc::vec::IntoIter<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<T> core::ops::Deref for SimResult<T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -472,7 +487,7 @@ impl<M: Clone> MessagesQueue<M> {
 ///
 /// let n = 3;
 ///
-/// let output = round_based::simulation::run(
+/// let output = round_based::sim::run(
 ///     n,
 ///     |i, party| protocol_of_random_generation(party, i, n),
 /// )
@@ -527,7 +542,7 @@ where
 ///
 /// let mut rng = rand_dev::DevRng::new();
 /// let n = 3;
-/// let output = round_based::simulation::run_with_setup(
+/// let output = round_based::sim::run_with_setup(
 ///     core::iter::repeat_with(|| rng.fork()).take(n.into()),
 ///     |i, party, rng| protocol_of_random_generation(rng, party, i, n),
 /// )
@@ -560,7 +575,7 @@ where
 #[cfg(test)]
 mod tests {
     mod expect_eq {
-        use crate::simulation::SimResult;
+        use crate::sim::SimResult;
 
         #[test]
         fn all_eq() {
@@ -590,7 +605,7 @@ mod tests {
     }
 
     mod expect_ok {
-        use crate::simulation::SimResult;
+        use crate::sim::SimResult;
 
         #[test]
         fn all_ok() {

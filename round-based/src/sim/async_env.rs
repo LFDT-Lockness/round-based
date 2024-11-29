@@ -49,7 +49,7 @@
 //!
 //! let n = 3;
 //!
-//! let output = round_based::simulation::async_env::run(
+//! let output = round_based::sim::async_env::run(
 //!     n,
 //!     |i, party| protocol_of_random_generation(party, i, n),
 //! )
@@ -276,7 +276,7 @@ impl NextMessageId {
 ///
 /// let n = 3;
 ///
-/// let output = round_based::simulation::async_env::run(
+/// let output = round_based::sim::async_env::run(
 ///     n,
 ///     |i, party| protocol_of_random_generation(party, i, n),
 /// )
@@ -354,7 +354,7 @@ where
 ///
 /// let mut rng = rand_dev::DevRng::new();
 /// let n = 3;
-/// let output = round_based::simulation::async_env::run_with_setup(
+/// let output = round_based::sim::async_env::run_with_setup(
 ///     core::iter::repeat_with(|| rng.fork()).take(n.into()),
 ///     |i, party, rng| protocol_of_random_generation(rng, party, i, n),
 /// )
