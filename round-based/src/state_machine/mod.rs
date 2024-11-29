@@ -4,6 +4,33 @@
 //! may not be possible/desirable to have async runtime which drives the futures until completion.
 //! For such use-cases, we provide [`wrap_protocol`] function that wraps an MPC protocol defined as
 //! async function and returns the [`StateMachine`] that exposes sync API to carry out the protocol.
+//!
+//! ## Example
+//! ```rust,no_run
+//! use round_based::{Mpc, PartyIndex};
+//!
+//! # type Result<T, E = ()> = std::result::Result<T, E>;
+//! # type Randomness = [u8; 32];
+//! # type Msg = ();
+//! // Any MPC protocol
+//! pub async fn protocol_of_random_generation<M>(
+//!     party: M,
+//!     i: PartyIndex,
+//!     n: u16
+//! ) -> Result<Randomness>
+//! where
+//!     M: Mpc<ProtocolMessage = Msg>
+//! {
+//!     // ...
+//! # todo!()
+//! }
+//!
+//! let state_machine = round_based::state_machine::wrap_protocol(
+//!     |party| protocol_of_random_generation(party, 0, 3)
+//! );
+//! // `state_machine` implements `round_based::state_machine::StateMachine` trait.
+//! // Its methods can be used to advance protocol until completion.
+//! ```
 
 mod delivery;
 mod noop_waker;
