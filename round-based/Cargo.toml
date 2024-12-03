@@ -37,6 +37,8 @@ hex = "0.4"
 rand = "0.8"
 rand_dev = "0.1"
 
+anyhow = "1"
+
 [features]
 default = ["std"]
 state-machine = []

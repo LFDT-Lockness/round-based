@@ -61,6 +61,7 @@ pub use futures_util::{Sink, SinkExt, Stream, StreamExt};
 /// Fixes false-positive of `unused_crate_dependencies` lint that only occur in the tests
 #[cfg(test)]
 mod false_positives {
+    use anyhow as _;
     use futures as _;
     use trybuild as _;
 

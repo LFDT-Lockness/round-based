@@ -7,9 +7,11 @@
 //!
 //! ## Example
 //! ```rust,no_run
+//! # #[tokio::main(flavor = "current_thread")]
+//! # async fn main() -> anyhow::Result<()> {
 //! use round_based::{Mpc, PartyIndex};
+//! use anyhow::{Result, Error, Context as _};
 //!
-//! # type Result<T, E = ()> = std::result::Result<T, E>;
 //! # type Randomness = [u8; 32];
 //! # type Msg = ();
 //! // Any MPC protocol
@@ -25,11 +27,41 @@
 //! # todo!()
 //! }
 //!
-//! let state_machine = round_based::state_machine::wrap_protocol(
+//! // `state` implements `round_based::state_machine::StateMachine` trait.
+//! // Its methods can be used to advance protocol until completion.
+//! let mut state = round_based::state_machine::wrap_protocol(
 //!     |party| protocol_of_random_generation(party, 0, 3)
 //! );
-//! // `state_machine` implements `round_based::state_machine::StateMachine` trait.
-//! // Its methods can be used to advance protocol until completion.
+//!
+//! // Note: this is just an example. If you have stream/sink, you don't probably need to
+//! // use the sync API
+//! use futures::{Sink, Stream, SinkExt, StreamExt};
+//! async fn connect() -> Result<(
+//!     impl Stream<Item = anyhow::Result<round_based::Incoming<Msg>>>,
+//!     impl Sink<round_based::Outgoing<Msg>, Error = Error>
+//! )> {
+//!     // ...
+//!     # Ok((futures_util::stream::pending(), futures_util::sink::drain().sink_map_err(|err| match err {})))
+//! }
+//! let (mut incomings, mut outgoings) = connect().await?;
+//!
+//! use round_based::state_machine::{StateMachine as _, ProceedResult};
+//! let output = loop {
+//!     match state.proceed() {
+//!         ProceedResult::SendMsg(msg) => {
+//!             outgoings.send(msg).await?
+//!         }
+//!         ProceedResult::NeedsOneMoreMessage => {
+//!             let msg = incomings.next().await.context("unexpected eof")??;
+//!             state.received_msg(msg)
+//!                 .map_err(|_| anyhow::format_err!("state machine rejected received message"))?;
+//!         }
+//!         ProceedResult::Yielded => {},
+//!         ProceedResult::Output(out) => break Ok(out),
+//!         ProceedResult::Error(err) => break Err(err),
+//!     }
+//! };
+//! # Ok(()) }
 //! ```
 
 mod delivery;
