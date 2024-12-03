@@ -551,7 +551,7 @@ pub mod errors {
         #[error("mismatched error type")]
         MismatchedErrorType,
         #[error("take round result")]
-        TakeRoundResult(#[cfg_attr(feature = "std", source)] TakeOutputError),
+        TakeRoundResult(#[source] TakeOutputError),
     }
 
     impl<ProcessErr, IoErr> CompleteRoundError<ProcessErr, IoErr> {
@@ -625,8 +625,9 @@ mod tests {
 
     #[tokio::test]
     async fn complete_round_that_expects_no_messages() {
-        let incomings =
-            futures::stream::pending::<Result<crate::Incoming<FakeProtocolMsg>, std::io::Error>>();
+        let incomings = futures::stream::pending::<
+            Result<crate::Incoming<FakeProtocolMsg>, core::convert::Infallible>,
+        >();
 
         let mut rounds = super::RoundsRouter::builder();
         let round1 = rounds.add_round(Store);

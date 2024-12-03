@@ -50,9 +50,6 @@
 #![forbid(unused_crate_dependencies, missing_docs)]
 #![no_std]
 
-#[cfg(feature = "std")]
-extern crate std;
-
 extern crate alloc;
 
 #[doc(no_inline)]
