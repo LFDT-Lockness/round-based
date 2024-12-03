@@ -7,8 +7,7 @@
 //!
 //! ## Example
 //! ```rust,no_run
-//! # #[tokio::main(flavor = "current_thread")]
-//! # async fn main() -> anyhow::Result<()> {
+//! # fn main() -> anyhow::Result<()> {
 //! use round_based::{Mpc, PartyIndex};
 //! use anyhow::{Result, Error, Context as _};
 //!
@@ -33,26 +32,23 @@
 //!     |party| protocol_of_random_generation(party, 0, 3)
 //! );
 //!
-//! // Note: this is just an example. If you have stream/sink, you don't probably need to
-//! // use the sync API
-//! use futures::{Sink, Stream, SinkExt, StreamExt};
-//! async fn connect() -> Result<(
-//!     impl Stream<Item = anyhow::Result<round_based::Incoming<Msg>>>,
-//!     impl Sink<round_based::Outgoing<Msg>, Error = Error>
-//! )> {
-//!     // ...
-//!     # Ok((futures_util::stream::pending(), futures_util::sink::drain().sink_map_err(|err| match err {})))
+//! fn send(msg: round_based::Outgoing<Msg>) -> Result<()> {
+//!     // sends outgoing message...
+//! # unimplemented!()
 //! }
-//! let (mut incomings, mut outgoings) = connect().await?;
+//! fn recv() -> Result<round_based::Incoming<Msg>> {
+//!     // receives incoming message...
+//! # unimplemented!()
+//! }
 //!
 //! use round_based::state_machine::{StateMachine as _, ProceedResult};
 //! let output = loop {
 //!     match state.proceed() {
 //!         ProceedResult::SendMsg(msg) => {
-//!             outgoings.send(msg).await?
+//!             send(msg)?
 //!         }
 //!         ProceedResult::NeedsOneMoreMessage => {
-//!             let msg = incomings.next().await.context("unexpected eof")??;
+//!             let msg = recv()?;
 //!             state.received_msg(msg)
 //!                 .map_err(|_| anyhow::format_err!("state machine rejected received message"))?;
 //!         }
