@@ -34,7 +34,6 @@ use phantom_type::PhantomType;
 
 use crate::delivery::Delivery;
 use crate::runtime::{self, AsyncRuntime};
-use crate::StdError;
 
 /// Party of MPC protocol (trait)
 ///
@@ -82,9 +81,9 @@ pub trait Mpc: internal::Sealed {
     type Runtime: AsyncRuntime;
 
     /// Sending message error
-    type SendError: StdError + Send + Sync + 'static;
+    type SendError: core::error::Error + Send + Sync + 'static;
     /// Receiving message error
-    type ReceiveError: StdError + Send + Sync + 'static;
+    type ReceiveError: core::error::Error + Send + Sync + 'static;
 
     /// Converts into [`MpcParty`]
     fn into_party(self) -> MpcParty<Self::ProtocolMessage, Self::Delivery, Self::Runtime>;
@@ -142,8 +141,8 @@ impl<M, D, B> internal::Sealed for MpcParty<M, D, B> {}
 impl<M, D, R> Mpc for MpcParty<M, D, R>
 where
     D: Delivery<M>,
-    D::SendError: StdError + Send + Sync + 'static,
-    D::ReceiveError: StdError + Send + Sync + 'static,
+    D::SendError: core::error::Error + Send + Sync + 'static,
+    D::ReceiveError: core::error::Error + Send + Sync + 'static,
     R: AsyncRuntime,
 {
     type ProtocolMessage = M;

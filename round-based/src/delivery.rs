@@ -1,7 +1,5 @@
 use futures_util::{Sink, Stream};
 
-use crate::StdError;
-
 /// Networking abstraction
 ///
 /// Basically, it's pair of channels: [`Stream`] for receiving messages, and [`Sink`] for sending
@@ -12,9 +10,9 @@ pub trait Delivery<M> {
     /// Incoming delivery channel
     type Receive: Stream<Item = Result<Incoming<M>, Self::ReceiveError>> + Unpin;
     /// Error of outgoing delivery channel
-    type SendError: StdError + Send + Sync + 'static;
+    type SendError: core::error::Error + Send + Sync + 'static;
     /// Error of incoming delivery channel
-    type ReceiveError: StdError + Send + Sync + 'static;
+    type ReceiveError: core::error::Error + Send + Sync + 'static;
     /// Returns a pair of incoming and outgoing delivery channels
     fn split(self) -> (Self::Receive, Self::Send);
 }
@@ -23,8 +21,8 @@ impl<M, I, O, IErr, OErr> Delivery<M> for (I, O)
 where
     I: Stream<Item = Result<Incoming<M>, IErr>> + Unpin,
     O: Sink<Outgoing<M>, Error = OErr> + Unpin,
-    IErr: StdError + Send + Sync + 'static,
-    OErr: StdError + Send + Sync + 'static,
+    IErr: core::error::Error + Send + Sync + 'static,
+    OErr: core::error::Error + Send + Sync + 'static,
 {
     type Send = O;
     type Receive = I;

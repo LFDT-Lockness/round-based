@@ -1,5 +1,5 @@
 ## v0.4.0
-* Improve ergonomics of protocol simulation, which is used for writing tests [#14]
+* BREAKING: Improve ergonomics of protocol simulation, which is used for writing tests [#14]
   * Remove `dev` feature, it's replaced with `sim` and `sim-async`
   * `round_based::simulation` module is renamed into `round_based::sim`
   * `round_based::simulation::Simulation` is renamed and moved to `round_based::sim::async_env::Network`
@@ -12,6 +12,9 @@
   * When `sim-async` feature is enabled, you can use `round_based::sim::async_env::{run, run_with_setup, ...}`,
     but typically you don't want to use them
   * `round_based::simulation::SimulationSync` has been renamed to `round_based::sim::Simulation`
+* Use `core::error::Error` trait which is now always implemented for all errors regardless whether `std` feature
+  is enabled or not [#14]
+  * Update `thiserror` dependency to v2
 
 Migration guidelines:
 * Replace `dev` feature with `sim`

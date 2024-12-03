@@ -93,15 +93,3 @@ pub mod _docs;
 /// See [`ProtocolMessage`] docs for more details
 #[cfg(feature = "derive")]
 pub use round_based_derive::ProtocolMessage;
-
-mod std_error {
-    #[cfg(feature = "std")]
-    pub use std::error::Error as StdError;
-
-    #[cfg(not(feature = "std"))]
-    pub trait StdError: core::fmt::Display + core::fmt::Debug {}
-    #[cfg(not(feature = "std"))]
-    impl<E: core::fmt::Display + core::fmt::Debug> StdError for E {}
-}
-
-use std_error::StdError;

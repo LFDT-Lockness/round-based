@@ -74,15 +74,12 @@ impl<M> crate::Sink<crate::Outgoing<M>> for Outgoings<M> {
 }
 
 /// Error returned by [`Outgoings`] sink
-#[derive(Debug, displaydoc::Display)]
-#[displaydoc("{0}")]
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
 pub struct SendErr(SendErrReason);
 
-#[derive(Debug, displaydoc::Display)]
+#[derive(Debug, thiserror::Error)]
 enum SendErrReason {
-    #[displaydoc("sink is not ready")]
+    #[error("sink is not ready")]
     NotReady,
 }
-
-#[cfg(feature = "std")]
-impl std::error::Error for SendErr {}

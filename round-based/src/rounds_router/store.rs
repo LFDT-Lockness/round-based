@@ -23,7 +23,7 @@ pub trait MessagesStore: Sized + 'static {
     /// Store output (e.g. `Vec<_>` of received messages)
     type Output;
     /// Store error
-    type Error: crate::StdError;
+    type Error: core::error::Error;
 
     /// Adds received message to the store
     ///

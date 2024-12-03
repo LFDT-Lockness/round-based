@@ -108,7 +108,7 @@ pub trait StateMachine {
 }
 
 /// Tells why protocol execution stopped
-#[must_use = "ProceedResult must be used to correcty carry out the state machine"]
+#[must_use = "ProceedResult must be used to correctly carry out the state machine"]
 pub enum ProceedResult<O, M> {
     /// Protocol needs provided message to be sent
     SendMsg(crate::Outgoing<M>),
@@ -117,7 +117,7 @@ pub enum ProceedResult<O, M> {
     /// After the state machine requested one more message, the next call to the state machine must
     /// be [`StateMachine::received_msg`].
     NeedsOneMoreMessage,
-    /// Protocol is finised
+    /// Protocol is finished
     Output(O),
     /// Protocol yielded the execution
     ///
@@ -149,15 +149,15 @@ impl<O, M> core::fmt::Debug for ProceedResult<O, M> {
 }
 
 /// Error type which indicates that state machine failed to carry out the protocol
-#[derive(Debug, displaydoc::Display)]
-#[displaydoc("{0}")]
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
 pub struct ExecutionError(Reason);
 
-#[derive(Debug, displaydoc::Display)]
+#[derive(Debug, thiserror::Error)]
 enum Reason {
-    #[displaydoc("resuming state machine when protocol is already finished")]
+    #[error("resuming state machine when protocol is already finished")]
     Exhausted,
-    #[displaydoc("protocol polls unknown (unsupported) future")]
+    #[error("protocol polls unknown (unsupported) future")]
     PollingUnknownFuture,
 }
 
@@ -171,9 +171,6 @@ impl From<Reason> for ExecutionError {
         ExecutionError(err)
     }
 }
-
-#[cfg(feature = "std")]
-impl std::error::Error for ExecutionError {}
 
 struct StateMachineImpl<O, M, F: Future<Output = O>> {
     shared_state: shared_state::SharedStateRef<M>,

@@ -19,8 +19,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 phantom-type = { version = "0.3", default-features = false }
 tracing = { version = "0.1", default-features = false }
-thiserror = { version = "1", optional = true }
-displaydoc = { version = "0.2", default-features = false }
+thiserror = { version = "2", default-features = false }
 
 round-based-derive = { version = "0.2", optional = true, path = "../round-based-derive" }
 
@@ -40,13 +39,13 @@ rand_dev = "0.1"
 anyhow = "1"
 
 [features]
-default = ["std"]
+default = []
 state-machine = []
-sim = ["std", "state-machine"]
+sim = ["state-machine"]
 sim-async = ["sim", "tokio/sync", "tokio-stream", "futures-util/alloc"]
 derive = ["round-based-derive"]
 runtime-tokio = ["tokio"]
-std = ["thiserror"]
+std = []
 
 [[test]]
 name = "derive"

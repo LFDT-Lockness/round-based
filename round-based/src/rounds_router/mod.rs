@@ -82,7 +82,7 @@ impl<M, S, E> RoundsRouter<M, S>
 where
     M: ProtocolMessage,
     S: Stream<Item = Result<Incoming<M>, E>> + Unpin,
-    E: crate::StdError,
+    E: core::error::Error,
 {
     /// Completes specified round
     ///
@@ -326,12 +326,11 @@ trait ProcessRoundMessage {
     fn take_output(&mut self) -> Result<Result<Box<dyn Any>, Box<dyn Any>>, TakeOutputError>;
 }
 
-#[derive(Debug, displaydoc::Display)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 enum TakeOutputError {
-    #[displaydoc("output is already taken")]
+    #[error("output is already taken")]
     AlreadyTaken,
-    #[displaydoc("output is not ready yet, more messages are needed")]
+    #[error("output is not ready yet, more messages are needed")]
     NotReady,
 }
 
@@ -470,38 +469,30 @@ pub mod errors {
     use super::TakeOutputError;
 
     /// Error indicating that `Rounds` failed to complete certain round
-    #[derive(Debug, displaydoc::Display)]
-    #[cfg_attr(feature = "std", derive(thiserror::Error))]
+    #[derive(Debug, thiserror::Error)]
     pub enum CompleteRoundError<ProcessErr, IoErr> {
         /// [`MessagesStore`](super::MessagesStore) failed to process this message
-        #[displaydoc("failed to process the message")]
-        ProcessMessage(#[cfg_attr(feature = "std", source)] ProcessErr),
+        #[error("failed to process the message")]
+        ProcessMessage(#[source] ProcessErr),
         /// Receiving next message resulted into i/o error
-        #[displaydoc("receive next message")]
-        Io(#[cfg_attr(feature = "std", source)] IoError<IoErr>),
+        #[error("receive next message")]
+        Io(#[from] IoError<IoErr>),
         /// Some implementation specific error
         ///
         /// Error may be result of improper `MessagesStore` implementation, API misuse, or bug
         /// in `Rounds` implementation
-        #[displaydoc("implementation error")]
-        Other(#[cfg_attr(feature = "std", source)] OtherError),
-    }
-
-    impl<E, IoErr> From<IoError<IoErr>> for CompleteRoundError<E, IoErr> {
-        fn from(err: IoError<IoErr>) -> Self {
-            Self::Io(err)
-        }
+        #[error("implementation error")]
+        Other(#[source] OtherError),
     }
 
     /// Error indicating that receiving next message resulted into i/o error
-    #[derive(Debug, displaydoc::Display)]
-    #[cfg_attr(feature = "std", derive(thiserror::Error))]
+    #[derive(Debug, thiserror::Error)]
     pub enum IoError<E> {
         /// I/O error
-        #[displaydoc("i/o error")]
-        Io(#[cfg_attr(feature = "std", source)] E),
+        #[error("i/o error")]
+        Io(#[source] E),
         /// Encountered unexpected EOF
-        #[displaydoc("unexpected eof")]
+        #[error("unexpected eof")]
         UnexpectedEof,
     }
 
@@ -509,45 +500,40 @@ pub mod errors {
     ///
     /// Error may be result of improper `MessagesStore` implementation, API misuse, or bug
     /// in `Rounds` implementation
-    #[derive(Debug)]
-    #[cfg_attr(feature = "std", derive(thiserror::Error), error(transparent))]
-    #[cfg_attr(not(feature = "std"), derive(displaydoc::Display), displaydoc("{0}"))]
+    #[derive(Debug, thiserror::Error)]
+    #[error(transparent)]
     pub struct OtherError(OtherReason);
 
-    #[derive(Debug, displaydoc::Display)]
-    #[cfg_attr(feature = "std", derive(thiserror::Error))]
+    #[derive(Debug, thiserror::Error)]
     pub(super) enum OtherReason {
-        #[displaydoc("improper `MessagesStore` implementation")]
-        ImproperStoreImpl(#[cfg_attr(feature = "std", source)] ImproperStoreImpl),
-        #[displaydoc("`Rounds` API misuse")]
-        RoundsMisuse(#[cfg_attr(feature = "std", source)] RoundsMisuse),
-        #[displaydoc("bug in `Rounds` (please, open a issue)")]
-        Bug(#[cfg_attr(feature = "std", source)] Bug),
+        #[error("improper `MessagesStore` implementation")]
+        ImproperStoreImpl(#[source] ImproperStoreImpl),
+        #[error("`Rounds` API misuse")]
+        RoundsMisuse(#[source] RoundsMisuse),
+        #[error("bug in `Rounds` (please, open a issue)")]
+        Bug(#[source] Bug),
     }
 
-    #[derive(Debug, displaydoc::Display)]
-    #[cfg_attr(feature = "std", derive(thiserror::Error))]
+    #[derive(Debug, thiserror::Error)]
     pub(super) enum ImproperStoreImpl {
         /// Store indicated that it received enough messages but didn't output
         ///
         /// I.e. [`store.wants_more()`] returned `false`, but `store.output()` returned `Err(_)`.
-        #[displaydoc("store didn't output")]
+        #[error("store didn't output")]
         StoreDidntOutput,
     }
 
-    #[derive(Debug, displaydoc::Display)]
-    #[cfg_attr(feature = "std", derive(thiserror::Error))]
+    #[derive(Debug, thiserror::Error)]
     pub(super) enum RoundsMisuse {
-        #[displaydoc("round is already completed")]
+        #[error("round is already completed")]
         RoundAlreadyCompleted,
-        #[displaydoc("round {n} is not registered")]
+        #[error("round {n} is not registered")]
         UnregisteredRound { n: u16 },
     }
 
-    #[derive(Debug, displaydoc::Display)]
-    #[cfg_attr(feature = "std", derive(thiserror::Error))]
+    #[derive(Debug, thiserror::Error)]
     pub(super) enum Bug {
-        #[displaydoc(
+        #[error(
             "message originates from another round: we process messages from round \
             {expected_round}, got message from round {actual_number}"
         )]
@@ -555,16 +541,16 @@ pub mod errors {
             expected_round: u16,
             actual_number: u16,
         },
-        #[displaydoc("state is incoherent, it's expected to be {expected}: {justification}")]
+        #[error("state is incoherent, it's expected to be {expected}: {justification}")]
         IncoherentState {
             expected: &'static str,
             justification: &'static str,
         },
-        #[displaydoc("mismatched output type")]
+        #[error("mismatched output type")]
         MismatchedOutputType,
-        #[displaydoc("mismatched error type")]
+        #[error("mismatched error type")]
         MismatchedErrorType,
-        #[displaydoc("take round result")]
+        #[error("take round result")]
         TakeRoundResult(#[cfg_attr(feature = "std", source)] TakeOutputError),
     }
 

@@ -3,13 +3,13 @@
 #![no_std]
 #![forbid(unused_crate_dependencies, missing_docs)]
 
-#[cfg(any(feature = "std", test))]
+#[cfg(test)]
 extern crate std;
 
 extern crate alloc;
 
 mod _unused_deps {
-    // We don't use it directy, but we need to enable `serde` feature
+    // We don't use it directly, but we need to enable `serde` feature
     use generic_array as _;
 }
 
@@ -132,28 +132,23 @@ where
 }
 
 /// Protocol error
-#[derive(Debug, displaydoc::Display)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum Error<RecvErr, SendErr> {
     /// Couldn't send a message in the first round
-    #[displaydoc("send a message at round 1")]
-    Round1Send(#[cfg_attr(feature = "std", source)] SendErr),
+    #[error("send a message at round 1")]
+    Round1Send(#[source] SendErr),
     /// Couldn't receive a message in the first round
-    #[displaydoc("receive messages at round 1")]
-    Round1Receive(
-        #[cfg_attr(feature = "std", source)] CompleteRoundError<RoundInputError, RecvErr>,
-    ),
+    #[error("receive messages at round 1")]
+    Round1Receive(#[source] CompleteRoundError<RoundInputError, RecvErr>),
     /// Couldn't send a message in the second round
-    #[displaydoc("send a message at round 2")]
-    Round2Send(#[cfg_attr(feature = "std", source)] SendErr),
+    #[error("send a message at round 2")]
+    Round2Send(#[source] SendErr),
     /// Couldn't receive a message in the second round
-    #[displaydoc("receive messages at round 2")]
-    Round2Receive(
-        #[cfg_attr(feature = "std", source)] CompleteRoundError<RoundInputError, RecvErr>,
-    ),
+    #[error("receive messages at round 2")]
+    Round2Receive(#[source] CompleteRoundError<RoundInputError, RecvErr>),
 
     /// Some of the parties cheated
-    #[displaydoc("malicious parties: {guilty_parties:?}")]
+    #[error("malicious parties: {guilty_parties:?}")]
     PartiesOpenedRandomnessDoesntMatchCommitment {
         /// List of cheated parties
         guilty_parties: Vec<Blame>,
