@@ -15,6 +15,7 @@
 * Use `core::error::Error` trait which is now always implemented for all errors regardless whether `std` feature
   is enabled or not [#14]
   * Update `thiserror` dependency to v2
+  * BREAKING: remove `std` feature, as the crate is fully no_std now
 
 Migration guidelines:
 * Replace `dev` feature with `sim`
@@ -22,6 +23,7 @@ Migration guidelines:
   `round_based::simulation::{run, run_with_setup}`
 * Take advantage of `SimResult::{expect_ok, expect_eq}` to reduce amount of the code
   in your tests
+* Remove `std` feature, if it was explicitly enabled
 
 Other than simulation, there are no breaking changes in this release.
 

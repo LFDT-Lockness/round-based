@@ -45,7 +45,6 @@ sim = ["state-machine"]
 sim-async = ["sim", "tokio/sync", "tokio-stream", "futures-util/alloc"]
 derive = ["round-based-derive"]
 runtime-tokio = ["tokio"]
-std = []
 
 [[test]]
 name = "derive"
