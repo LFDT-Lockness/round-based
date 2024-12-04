@@ -4,6 +4,61 @@
 //! may not be possible/desirable to have async runtime which drives the futures until completion.
 //! For such use-cases, we provide [`wrap_protocol`] function that wraps an MPC protocol defined as
 //! async function and returns the [`StateMachine`] that exposes sync API to carry out the protocol.
+//!
+//! ## Example
+//! ```rust,no_run
+//! # fn main() -> anyhow::Result<()> {
+//! use round_based::{Mpc, PartyIndex};
+//! use anyhow::{Result, Error, Context as _};
+//!
+//! # type Randomness = [u8; 32];
+//! # type Msg = ();
+//! // Any MPC protocol
+//! pub async fn protocol_of_random_generation<M>(
+//!     party: M,
+//!     i: PartyIndex,
+//!     n: u16
+//! ) -> Result<Randomness>
+//! where
+//!     M: Mpc<ProtocolMessage = Msg>
+//! {
+//!     // ...
+//! # todo!()
+//! }
+//!
+//! // `state` implements `round_based::state_machine::StateMachine` trait.
+//! // Its methods can be used to advance protocol until completion.
+//! let mut state = round_based::state_machine::wrap_protocol(
+//!     |party| protocol_of_random_generation(party, 0, 3)
+//! );
+//!
+//! fn send(msg: round_based::Outgoing<Msg>) -> Result<()> {
+//!     // sends outgoing message...
+//! # unimplemented!()
+//! }
+//! fn recv() -> Result<round_based::Incoming<Msg>> {
+//!     // receives incoming message...
+//! # unimplemented!()
+//! }
+//!
+//! use round_based::state_machine::{StateMachine as _, ProceedResult};
+//! let output = loop {
+//!     match state.proceed() {
+//!         ProceedResult::SendMsg(msg) => {
+//!             send(msg)?
+//!         }
+//!         ProceedResult::NeedsOneMoreMessage => {
+//!             let msg = recv()?;
+//!             state.received_msg(msg)
+//!                 .map_err(|_| anyhow::format_err!("state machine rejected received message"))?;
+//!         }
+//!         ProceedResult::Yielded => {},
+//!         ProceedResult::Output(out) => break Ok(out),
+//!         ProceedResult::Error(err) => break Err(err),
+//!     }
+//! };
+//! # Ok(()) }
+//! ```
 
 mod delivery;
 mod noop_waker;
@@ -49,7 +104,7 @@ pub trait StateMachine {
 }
 
 /// Tells why protocol execution stopped
-#[must_use = "ProceedResult must be used to correcty carry out the state machine"]
+#[must_use = "ProceedResult must be used to correctly carry out the state machine"]
 pub enum ProceedResult<O, M> {
     /// Protocol needs provided message to be sent
     SendMsg(crate::Outgoing<M>),
@@ -58,7 +113,7 @@ pub enum ProceedResult<O, M> {
     /// After the state machine requested one more message, the next call to the state machine must
     /// be [`StateMachine::received_msg`].
     NeedsOneMoreMessage,
-    /// Protocol is finised
+    /// Protocol is finished
     Output(O),
     /// Protocol yielded the execution
     ///
@@ -90,15 +145,15 @@ impl<O, M> core::fmt::Debug for ProceedResult<O, M> {
 }
 
 /// Error type which indicates that state machine failed to carry out the protocol
-#[derive(Debug, displaydoc::Display)]
-#[displaydoc("{0}")]
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
 pub struct ExecutionError(Reason);
 
-#[derive(Debug, displaydoc::Display)]
+#[derive(Debug, thiserror::Error)]
 enum Reason {
-    #[displaydoc("resuming state machine when protocol is already finished")]
+    #[error("resuming state machine when protocol is already finished")]
     Exhausted,
-    #[displaydoc("protocol polls unknown (unsupported) future")]
+    #[error("protocol polls unknown (unsupported) future")]
     PollingUnknownFuture,
 }
 
@@ -112,9 +167,6 @@ impl From<Reason> for ExecutionError {
         ExecutionError(err)
     }
 }
-
-#[cfg(feature = "std")]
-impl std::error::Error for ExecutionError {}
 
 struct StateMachineImpl<O, M, F: Future<Output = O>> {
     shared_state: shared_state::SharedStateRef<M>,

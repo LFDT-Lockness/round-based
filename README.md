@@ -35,7 +35,12 @@ the documentation of the protocol you're using), but usually they are:
 
 ## Features
 
-* `dev` enables development tools such as protocol simulation
+* `sim` enables protocol execution simulation, see `sim` module
+  * `sim-async` enables protocol execution simulation with tokio runtime, see `sim::async_env`
+    module
+* `state-machine` provides ability to carry out the protocol, defined as async function, via Sync
+   API, see `state_machine` module
+* `derive` is needed to use `ProtocolMessage` proc macro
 * `runtime-tokio` enables tokio-specific implementation of async runtime
 
 ## Join us in Discord!

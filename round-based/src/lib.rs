@@ -35,7 +35,12 @@
 //!
 //! ## Features
 //!
-//! * `dev` enables development tools such as [protocol simulation](simulation)
+//! * `sim` enables protocol execution simulation, see [`sim`] module
+//!   * `sim-async` enables protocol execution simulation with tokio runtime, see [`sim::async_env`]
+//!     module
+//! * `state-machine` provides ability to carry out the protocol, defined as async function, via Sync
+//!    API, see [`state_machine`] module
+//! * `derive` is needed to use [`ProtocolMessage`](macro@ProtocolMessage) proc macro
 //! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](runtime)
 //!
 //! ## Join us in Discord!
@@ -45,19 +50,19 @@
 #![forbid(unused_crate_dependencies, missing_docs)]
 #![no_std]
 
-#[cfg(feature = "std")]
-extern crate std;
-
 extern crate alloc;
 
 #[doc(no_inline)]
 pub use futures_util::{Sink, SinkExt, Stream, StreamExt};
 
-/// Fixes false-positive of `unused_crate_dependencies` lint that only occure in the tests
+/// Fixes false-positive of `unused_crate_dependencies` lint that only occur in the tests
 #[cfg(test)]
 mod false_positives {
+    use anyhow as _;
     use futures as _;
     use trybuild as _;
+
+    use {hex as _, rand as _, rand_dev as _};
 }
 
 mod delivery;
@@ -67,8 +72,8 @@ pub mod runtime;
 #[cfg(feature = "state-machine")]
 pub mod state_machine;
 
-#[cfg(feature = "dev")]
-pub mod simulation;
+#[cfg(feature = "sim")]
+pub mod sim;
 
 pub use self::delivery::*;
 #[doc(no_inline)]
@@ -85,15 +90,3 @@ pub mod _docs;
 /// See [`ProtocolMessage`] docs for more details
 #[cfg(feature = "derive")]
 pub use round_based_derive::ProtocolMessage;
-
-mod std_error {
-    #[cfg(feature = "std")]
-    pub use std::error::Error as StdError;
-
-    #[cfg(not(feature = "std"))]
-    pub trait StdError: core::fmt::Display + core::fmt::Debug {}
-    #[cfg(not(feature = "std"))]
-    impl<E: core::fmt::Display + core::fmt::Debug> StdError for E {}
-}
-
-use std_error::StdError;

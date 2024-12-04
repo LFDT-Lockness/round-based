@@ -3,13 +3,13 @@
 #![no_std]
 #![forbid(unused_crate_dependencies, missing_docs)]
 
-#[cfg(any(feature = "std", test))]
+#[cfg(test)]
 extern crate std;
 
 extern crate alloc;
 
 mod _unused_deps {
-    // We don't use it directy, but we need to enable `serde` feature
+    // We don't use it directly, but we need to enable `serde` feature
     use generic_array as _;
 }
 
@@ -132,28 +132,23 @@ where
 }
 
 /// Protocol error
-#[derive(Debug, displaydoc::Display)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum Error<RecvErr, SendErr> {
     /// Couldn't send a message in the first round
-    #[displaydoc("send a message at round 1")]
-    Round1Send(#[cfg_attr(feature = "std", source)] SendErr),
+    #[error("send a message at round 1")]
+    Round1Send(#[source] SendErr),
     /// Couldn't receive a message in the first round
-    #[displaydoc("receive messages at round 1")]
-    Round1Receive(
-        #[cfg_attr(feature = "std", source)] CompleteRoundError<RoundInputError, RecvErr>,
-    ),
+    #[error("receive messages at round 1")]
+    Round1Receive(#[source] CompleteRoundError<RoundInputError, RecvErr>),
     /// Couldn't send a message in the second round
-    #[displaydoc("send a message at round 2")]
-    Round2Send(#[cfg_attr(feature = "std", source)] SendErr),
+    #[error("send a message at round 2")]
+    Round2Send(#[source] SendErr),
     /// Couldn't receive a message in the second round
-    #[displaydoc("receive messages at round 2")]
-    Round2Receive(
-        #[cfg_attr(feature = "std", source)] CompleteRoundError<RoundInputError, RecvErr>,
-    ),
+    #[error("receive messages at round 2")]
+    Round2Receive(#[source] CompleteRoundError<RoundInputError, RecvErr>),
 
     /// Some of the parties cheated
-    #[displaydoc("malicious parties: {guilty_parties:?}")]
+    #[error("malicious parties: {guilty_parties:?}")]
     PartiesOpenedRandomnessDoesntMatchCommitment {
         /// List of cheated parties
         guilty_parties: Vec<Blame>,
@@ -173,13 +168,27 @@ pub struct Blame {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{vec, vec::Vec};
-
     use rand::Rng;
-    use round_based::simulation::Simulation;
     use sha2::{Digest, Sha256};
 
-    use super::{protocol_of_random_generation, Msg};
+    use super::protocol_of_random_generation;
+
+    #[test]
+    fn simulation() {
+        let mut rng = rand_dev::DevRng::new();
+
+        let n: u16 = 5;
+
+        let randomness = round_based::sim::run_with_setup(
+            core::iter::repeat_with(|| rng.fork()).take(n.into()),
+            |i, party, rng| protocol_of_random_generation(party, i, n, rng),
+        )
+        .unwrap()
+        .expect_ok()
+        .expect_eq();
+
+        std::println!("Output randomness: {}", hex::encode(randomness));
+    }
 
     #[tokio::test]
     async fn simulation_async() {
@@ -187,42 +196,15 @@ mod tests {
 
         let n: u16 = 5;
 
-        let mut simulation = Simulation::<Msg>::new();
-        let mut party_output = vec![];
+        let randomness = round_based::sim::async_env::run_with_setup(
+            core::iter::repeat_with(|| rng.fork()).take(n.into()),
+            |i, party, rng| protocol_of_random_generation(party, i, n, rng),
+        )
+        .await
+        .expect_ok()
+        .expect_eq();
 
-        for i in 0..n {
-            let party = simulation.add_party();
-            let output = protocol_of_random_generation(party, i, n, rng.fork());
-            party_output.push(output);
-        }
-
-        let output = futures::future::try_join_all(party_output).await.unwrap();
-
-        // Assert that all parties outputed the same randomness
-        for i in 1..n {
-            assert_eq!(output[0], output[usize::from(i)]);
-        }
-
-        std::println!("Output randomness: {}", hex::encode(output[0]));
-    }
-
-    #[test]
-    fn simulation_sync() {
-        let mut rng = rand_dev::DevRng::new();
-
-        let simulation = round_based::simulation::SimulationSync::from_async_fn(5, |i, party| {
-            protocol_of_random_generation(party, i, 5, rng.fork())
-        });
-
-        let outputs = simulation
-            .run()
-            .unwrap()
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-        for output_i in &outputs {
-            assert_eq!(*output_i, outputs[0]);
-        }
+        std::println!("Output randomness: {}", hex::encode(randomness));
     }
 
     // Emulate the protocol using the state machine interface

@@ -132,7 +132,7 @@ impl<M> core::fmt::Debug for SharedStateRef<M> {
 /// [`SharedStateRef::can_schedule`].
 pub struct CanSchedule<T>(T);
 
-impl<'a, M> CanSchedule<&'a SharedStateRef<M>> {
+impl<M> CanSchedule<&SharedStateRef<M>> {
     fn borrow_mut(&self) -> core::cell::RefMut<SharedState<M>> {
         self.0 .0.borrow_mut()
     }

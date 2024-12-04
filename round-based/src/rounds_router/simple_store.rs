@@ -252,13 +252,12 @@ impl<M> RoundMsgs<M> {
 }
 
 /// Error explaining why `RoundInput` wasn't able to process a message
-#[derive(Debug, displaydoc::Display)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum RoundInputError {
     /// Party sent two messages in one round
     ///
     /// `msgs_ids` are ids of conflicting messages
-    #[displaydoc("party {sender} tried to overwrite message")]
+    #[error("party {sender} tried to overwrite message")]
     AttemptToOverwriteReceivedMsg {
         /// IDs of conflicting messages
         msgs_ids: [MsgId; 2],
@@ -269,7 +268,7 @@ pub enum RoundInputError {
     ///
     /// This error is thrown when index of sender is not in `[0; n)` where `n` is number of
     /// parties involved in the protocol (provided in [`RoundInput::new`])
-    #[displaydoc("sender index is out of range: sender={sender}, n={n}")]
+    #[error("sender index is out of range: sender={sender}, n={n}")]
     SenderIndexOutOfRange {
         /// Message ID
         msg_id: MsgId,
@@ -282,7 +281,7 @@ pub enum RoundInputError {
     ///
     /// For instance, this error is returned when it's expected to receive broadcast message,
     /// but party sent p2p message instead (which is rough protocol violation).
-    #[displaydoc("expected message {expected:?}, got {actual:?}")]
+    #[error("expected message {expected:?}, got {actual:?}")]
     MismatchedMessageType {
         /// Message ID
         msg_id: MsgId,

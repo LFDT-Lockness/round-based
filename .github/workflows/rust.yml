@@ -37,6 +37,16 @@ jobs:
     - name: cargo check
       run: cargo check -p round-based --all-features
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: "true"
+    - name: cargo test
+      run: cargo test --all-features
+
   check-fmt:
     runs-on: ubuntu-latest
     steps:
