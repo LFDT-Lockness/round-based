@@ -1,3 +1,6 @@
+## v0.4.1
+* Add methods to MpcParty to change its components [#15]
+
 ## v0.4.0
 * BREAKING: Improve ergonomics of protocol simulation, which is used for writing tests [#14]
   * Remove `dev` feature, it's replaced with `sim` and `sim-async`
