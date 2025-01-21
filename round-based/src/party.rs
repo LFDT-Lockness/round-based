@@ -123,6 +123,26 @@ impl<M, D, X> MpcParty<M, D, X>
 where
     D: Delivery<M>,
 {
+    /// Modify the delivery of this party while keeping everything else the same
+    pub fn map_delivery<D2>(self, f: impl FnOnce(D) -> D2) -> MpcParty<M, D2, X> {
+        let delivery = f(self.delivery);
+        MpcParty {
+            delivery,
+            runtime: self.runtime,
+            _msg: self._msg,
+        }
+    }
+
+    /// Modify the runtime of this party while keeping everything else the same
+    pub fn map_runtime<R>(self, f: impl FnOnce(X) -> R) -> MpcParty<M, D, R> {
+        let runtime = f(self.runtime);
+        MpcParty {
+            delivery: self.delivery,
+            runtime,
+            _msg: self._msg,
+        }
+    }
+
     /// Specifies a [async runtime](runtime)
     pub fn set_runtime<R>(self, runtime: R) -> MpcParty<M, D, R>
     where
