@@ -1,39 +1,3 @@
-use futures_util::{Sink, Stream};
-
-/// Networking abstraction
-///
-/// Basically, it's pair of channels: [`Stream`] for receiving messages, and [`Sink`] for sending
-/// messages to other parties.
-pub trait Delivery<M> {
-    /// Outgoing delivery channel
-    type Send: Sink<Outgoing<M>, Error = Self::SendError> + Unpin;
-    /// Incoming delivery channel
-    type Receive: Stream<Item = Result<Incoming<M>, Self::ReceiveError>> + Unpin;
-    /// Error of outgoing delivery channel
-    type SendError: core::error::Error + Send + Sync + 'static;
-    /// Error of incoming delivery channel
-    type ReceiveError: core::error::Error + Send + Sync + 'static;
-    /// Returns a pair of incoming and outgoing delivery channels
-    fn split(self) -> (Self::Receive, Self::Send);
-}
-
-impl<M, I, O, IErr, OErr> Delivery<M> for (I, O)
-where
-    I: Stream<Item = Result<Incoming<M>, IErr>> + Unpin,
-    O: Sink<Outgoing<M>, Error = OErr> + Unpin,
-    IErr: core::error::Error + Send + Sync + 'static,
-    OErr: core::error::Error + Send + Sync + 'static,
-{
-    type Send = O;
-    type Receive = I;
-    type SendError = OErr;
-    type ReceiveError = IErr;
-
-    fn split(self) -> (Self::Receive, Self::Send) {
-        (self.0, self.1)
-    }
-}
-
 /// Incoming message
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Incoming<M> {
@@ -106,7 +70,7 @@ impl<M> Incoming<M> {
 
     /// Checks whether it's broadcast message
     pub fn is_broadcast(&self) -> bool {
-        matches!(self.msg_type, MessageType::Broadcast { .. })
+        matches!(self.msg_type, MessageType::Broadcast)
     }
 
     /// Checks whether it's p2p message
@@ -187,6 +151,6 @@ impl MessageDestination {
     }
     /// Returns `true` if it's broadcast message
     pub fn is_broadcast(&self) -> bool {
-        matches!(self, MessageDestination::AllParties { .. })
+        matches!(self, MessageDestination::AllParties)
     }
 }

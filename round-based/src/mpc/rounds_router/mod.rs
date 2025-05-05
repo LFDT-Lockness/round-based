@@ -122,6 +122,7 @@ where
         Ok(())
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn complete_round<R>(
         &mut self,
         round: Round<R>,

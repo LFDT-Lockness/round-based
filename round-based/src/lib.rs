@@ -39,7 +39,7 @@
 //!   * `sim-async` enables protocol execution simulation with tokio runtime, see [`sim::async_env`]
 //!     module
 //! * `state-machine` provides ability to carry out the protocol, defined as async function, via Sync
-//!    API, see [`state_machine`] module
+//!   API, see [`state_machine`] module
 //! * `derive` is needed to use [`ProtocolMsg`](macro@ProtocolMsg) proc macro
 //! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](runtime)
 //!

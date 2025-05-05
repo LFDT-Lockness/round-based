@@ -313,7 +313,7 @@ where
 {
     run_with_capacity_and_setup(
         capacity,
-        core::iter::repeat(()).take(n.into()),
+        core::iter::repeat_n((), n.into()),
         |i, party, ()| party_start(i, party),
     )
     .await
