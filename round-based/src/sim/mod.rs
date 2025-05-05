@@ -43,7 +43,7 @@
 //!     n: u16
 //! ) -> Result<Randomness>
 //! where
-//!     M: Mpc<ProtocolMessage = Msg>
+//!     M: Mpc<ProtocolMsg = Msg>
 //! {
 //!     // ...
 //! # todo!()
@@ -67,7 +67,9 @@
 use alloc::{boxed::Box, collections::VecDeque, string::ToString, vec::Vec};
 use core::future::Future;
 
-use crate::{state_machine::ProceedResult, Incoming, MessageDestination, MessageType, Outgoing};
+use crate::{
+    state_machine::ProceedResult, Incoming, MessageDestination, MessageType, Outgoing, ProtocolMsg,
+};
 
 #[cfg(feature = "sim-async")]
 pub mod async_env;
@@ -229,7 +231,7 @@ enum Party<'a, O, M> {
 
 impl<'a, O, M> Simulation<'a, O, M>
 where
-    M: Clone + 'static,
+    M: ProtocolMsg + Clone + 'static,
 {
     /// Creates empty simulation containing no parties
     ///
@@ -479,7 +481,7 @@ impl<M: Clone> MessagesQueue<M> {
 ///     n: u16
 /// ) -> Result<Randomness>
 /// where
-///     M: Mpc<ProtocolMessage = Msg>
+///     M: Mpc<ProtocolMsg = Msg>
 /// {
 ///     // ...
 /// # todo!()
@@ -504,7 +506,7 @@ pub fn run<M, F>(
     mut party_start: impl FnMut(u16, crate::state_machine::MpcParty<M>) -> F,
 ) -> Result<SimResult<F::Output>, SimError>
 where
-    M: Clone + 'static,
+    M: ProtocolMsg + Clone + 'static,
     F: Future,
 {
     run_with_setup(core::iter::repeat(()).take(n.into()), |i, party, ()| {
@@ -534,7 +536,7 @@ where
 ///     n: u16
 /// ) -> Result<Randomness>
 /// where
-///     M: Mpc<ProtocolMessage = Msg>
+///     M: Mpc<ProtocolMsg = Msg>
 /// {
 ///     // ...
 /// # todo!()
@@ -559,7 +561,7 @@ pub fn run_with_setup<S, M, F>(
     mut party_start: impl FnMut(u16, crate::state_machine::MpcParty<M>, S) -> F,
 ) -> Result<SimResult<F::Output>, SimError>
 where
-    M: Clone + 'static,
+    M: ProtocolMsg + Clone + 'static,
     F: Future,
 {
     let mut sim = Simulation::empty();

@@ -41,7 +41,7 @@
 //!     n: u16
 //! ) -> Result<Randomness>
 //! where
-//!     M: Mpc<ProtocolMessage = Msg>
+//!     M: Mpc<ProtocolMsg = Msg>
 //! {
 //!     // ...
 //! # todo!()
@@ -75,7 +75,10 @@ use futures_util::{Sink, Stream};
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 
-use crate::delivery::{Delivery, Incoming, Outgoing};
+use crate::{
+    delivery::{Incoming, Outgoing},
+    ProtocolMsg,
+};
 use crate::{MessageDestination, MessageType, MpcParty, MsgId, PartyIndex};
 
 use super::SimResult;
@@ -91,7 +94,7 @@ pub struct Network<M> {
 
 impl<M> Network<M>
 where
-    M: Clone + Send + Unpin + 'static,
+    M: ProtocolMsg + Clone + Send + Unpin + 'static,
 {
     /// Instantiates a new simulation
     pub fn new() -> Self {
@@ -126,23 +129,23 @@ where
         let local_party_idx = self.next_party_idx;
         self.next_party_idx += 1;
 
-        MockedDelivery {
-            incoming: MockedIncoming {
+        MockedDelivery::new(
+            MockedIncoming {
                 local_party_idx,
                 receiver: BroadcastStream::new(self.channel.subscribe()),
             },
-            outgoing: MockedOutgoing {
+            MockedOutgoing {
                 local_party_idx,
                 sender: self.channel.clone(),
                 next_msg_id: self.next_msg_id.clone(),
             },
-        }
+        )
     }
 }
 
 impl<M> Default for Network<M>
 where
-    M: Clone + Send + Unpin + 'static,
+    M: ProtocolMsg + Clone + Send + Unpin + 'static,
 {
     fn default() -> Self {
         Self::new()
@@ -150,23 +153,17 @@ where
 }
 
 /// Mocked networking
-pub struct MockedDelivery<M> {
-    incoming: MockedIncoming<M>,
-    outgoing: MockedOutgoing<M>,
-}
+pub type MockedDelivery<M> = crate::mpc::Halves<MockedIncoming<M>, MockedOutgoing<M>>;
 
-impl<M> Delivery<M> for MockedDelivery<M>
-where
-    M: Clone + Send + Unpin + 'static,
-{
-    type Send = MockedOutgoing<M>;
-    type Receive = MockedIncoming<M>;
-    type SendError = broadcast::error::SendError<()>;
-    type ReceiveError = BroadcastStreamRecvError;
-
-    fn split(self) -> (Self::Receive, Self::Send) {
-        (self.incoming, self.outgoing)
-    }
+/// Delivery error
+#[derive(Debug, thiserror::Error)]
+pub enum MockedDeliveryError {
+    /// Error occurred when sending a message
+    #[error(transparent)]
+    Recv(BroadcastStreamRecvError),
+    /// Error occurred when receiving a message
+    #[error(transparent)]
+    Send(broadcast::error::SendError<()>),
 }
 
 /// Incoming channel of mocked network
@@ -179,13 +176,13 @@ impl<M> Stream for MockedIncoming<M>
 where
     M: Clone + Send + 'static,
 {
-    type Item = Result<Incoming<M>, BroadcastStreamRecvError>;
+    type Item = Result<Incoming<M>, MockedDeliveryError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
             let msg = match ready!(Pin::new(&mut self.receiver).poll_next(cx)) {
                 Some(Ok(m)) => m,
-                Some(Err(e)) => return Poll::Ready(Some(Err(e))),
+                Some(Err(e)) => return Poll::Ready(Some(Err(MockedDeliveryError::Recv(e)))),
                 None => return Poll::Ready(None),
             };
             if msg.recipient.is_p2p()
@@ -206,7 +203,7 @@ pub struct MockedOutgoing<M> {
 }
 
 impl<M> Sink<Outgoing<M>> for MockedOutgoing<M> {
-    type Error = broadcast::error::SendError<()>;
+    type Error = MockedDeliveryError;
 
     fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -224,7 +221,7 @@ impl<M> Sink<Outgoing<M>> for MockedOutgoing<M> {
                 msg_type,
                 msg: m,
             }))
-            .map_err(|_| broadcast::error::SendError(()))?;
+            .map_err(|_| MockedDeliveryError::Send(broadcast::error::SendError(())))?;
         Ok(())
     }
 
@@ -268,7 +265,7 @@ impl NextMessageId {
 ///     n: u16
 /// ) -> Result<Randomness>
 /// where
-///     M: Mpc<ProtocolMessage = Msg>
+///     M: Mpc<ProtocolMsg = Msg>
 /// {
 ///     // ...
 /// # todo!()
@@ -294,7 +291,7 @@ pub async fn run<M, F>(
     party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>) -> F,
 ) -> SimResult<F::Output>
 where
-    M: Clone + Send + Unpin + 'static,
+    M: ProtocolMsg + Clone + Send + Unpin + 'static,
     F: Future,
 {
     run_with_capacity(DEFAULT_CAPACITY, n, party_start).await
@@ -311,7 +308,7 @@ pub async fn run_with_capacity<M, F>(
     mut party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>) -> F,
 ) -> SimResult<F::Output>
 where
-    M: Clone + Send + Unpin + 'static,
+    M: ProtocolMsg + Clone + Send + Unpin + 'static,
     F: Future,
 {
     run_with_capacity_and_setup(
@@ -346,7 +343,7 @@ where
 ///     n: u16
 /// ) -> Result<Randomness>
 /// where
-///     M: Mpc<ProtocolMessage = Msg>
+///     M: Mpc<ProtocolMsg = Msg>
 /// {
 ///     // ...
 /// # todo!()
@@ -372,7 +369,7 @@ pub async fn run_with_setup<S, M, F>(
     party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>, S) -> F,
 ) -> SimResult<F::Output>
 where
-    M: Clone + Send + Unpin + 'static,
+    M: ProtocolMsg + Clone + Send + Unpin + 'static,
     F: Future,
 {
     run_with_capacity_and_setup::<S, M, F>(DEFAULT_CAPACITY, setups, party_start).await
@@ -389,7 +386,7 @@ pub async fn run_with_capacity_and_setup<S, M, F>(
     mut party_start: impl FnMut(u16, MpcParty<M, MockedDelivery<M>>, S) -> F,
 ) -> SimResult<F::Output>
 where
-    M: Clone + Send + Unpin + 'static,
+    M: ProtocolMsg + Clone + Send + Unpin + 'static,
     F: Future,
 {
     let mut network = Network::<M>::with_capacity(capacity);

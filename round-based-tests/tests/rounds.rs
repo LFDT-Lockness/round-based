@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use futures::{sink, stream, Sink, Stream};
+use futures::{sink, stream, SinkExt};
 use hex_literal::hex;
 use matches::assert_matches;
 use rand_chacha::rand_core::SeedableRng;
@@ -8,9 +8,10 @@ use rand_chacha::rand_core::SeedableRng;
 use random_generation_protocol::{
     protocol_of_random_generation, CommitMsg, DecommitMsg, Error, Msg,
 };
-use round_based::rounds_router::errors::IoError;
-use round_based::rounds_router::{simple_store::RoundInput, CompleteRoundError, RoundsRouter};
-use round_based::{Delivery, Incoming, MessageType, MpcParty, Outgoing};
+use round_based::{
+    mpc::errors::{CompleteRoundError, WithIo},
+    Incoming, MessageType,
+};
 
 const PARTY0_SEED: [u8; 32] =
     hex!("6772d079d5c984b3936a291e36b0d3dc6c474e36ed4afdfc973ef79a431ca870");
@@ -93,7 +94,9 @@ async fn protocol_terminates_with_error_if_party_tries_to_overwrite_message_at_r
 
     assert_matches!(
         output,
-        Err(Error::Round1Receive(CompleteRoundError::ProcessMessage(_)))
+        Err(Error::Round1Receive(WithIo::Other(
+            CompleteRoundError::ProcessMsg(_)
+        )))
     )
 }
 
@@ -137,7 +140,9 @@ async fn protocol_terminates_with_error_if_party_tries_to_overwrite_message_at_r
 
     assert_matches!(
         output,
-        Err(Error::Round2Receive(CompleteRoundError::ProcessMessage(_)))
+        Err(Error::Round2Receive(WithIo::Other(
+            CompleteRoundError::ProcessMsg(_)
+        )))
     )
 }
 
@@ -155,7 +160,9 @@ async fn protocol_terminates_if_received_message_from_unknown_sender_at_round1()
 
     assert_matches!(
         output,
-        Err(Error::Round1Receive(CompleteRoundError::ProcessMessage(_)))
+        Err(Error::Round1Receive(WithIo::Other(
+            CompleteRoundError::ProcessMsg(_)
+        )))
     )
 }
 
@@ -291,7 +298,7 @@ async fn protocol_terminates_with_error_if_io_error_happens_at_round2() {
     ])
     .await;
 
-    assert_matches!(output, Err(Error::Round2Receive(CompleteRoundError::Io(_))));
+    assert_matches!(output, Err(Error::Round2Receive(WithIo::Io(_))));
 }
 
 #[tokio::test]
@@ -333,7 +340,7 @@ async fn protocol_terminates_with_error_if_io_error_happens_at_round1() {
     ])
     .await;
 
-    assert_matches!(output, Err(Error::Round1Receive(CompleteRoundError::Io(_))));
+    assert_matches!(output, Err(Error::Round1Receive(WithIo::Io(_))));
 }
 
 #[tokio::test]
@@ -366,33 +373,21 @@ async fn protocol_terminates_with_error_if_unexpected_eof_happens_at_round2() {
     ])
     .await;
 
-    assert_matches!(
-        output,
-        Err(Error::Round2Receive(CompleteRoundError::Io(
-            IoError::UnexpectedEof
-        )))
-    );
+    assert_matches!(output, Err(Error::Round2Receive(WithIo::UnexpectedEof)));
 }
 
-#[tokio::test]
-async fn all_non_completed_rounds_are_terminated_with_unexpected_eof_error_if_incoming_channel_suddenly_closed(
-) {
-    let mut rounds = RoundsRouter::builder();
-    let round1 = rounds.add_round(RoundInput::<CommitMsg>::new(0, 3, MessageType::P2P));
-    let round2 = rounds.add_round(RoundInput::<DecommitMsg>::new(0, 3, MessageType::P2P));
-    let mut rounds = rounds.listen(stream::empty::<Result<Incoming<Msg>, Infallible>>());
-
-    assert_matches!(
-        rounds.complete(round1).await,
-        Err(CompleteRoundError::Io(IoError::UnexpectedEof))
-    );
-    assert_matches!(
-        rounds.complete(round2).await,
-        Err(CompleteRoundError::Io(IoError::UnexpectedEof))
-    );
-}
-
-async fn run_protocol<E, I>(incomings: I) -> Result<[u8; 32], Error<E, Infallible>>
+async fn run_protocol<E, I>(
+    incomings: I,
+) -> Result<
+    [u8; 32],
+    random_generation_protocol::Error<
+        round_based::mpc::errors::WithIo<
+            E,
+            round_based::mpc::errors::CompleteRoundError<round_based::round::RoundInputError>,
+        >,
+        E,
+    >,
+>
 where
     I: IntoIterator<Item = Result<Incoming<Msg>, E>>,
     I::IntoIter: Send + 'static,
@@ -400,36 +395,11 @@ where
 {
     let rng = rand_chacha::ChaCha8Rng::from_seed(PARTY0_SEED);
 
-    let party = MpcParty::connected(MockedDelivery::new(stream::iter(incomings), sink::drain()));
+    let party = round_based::mpc::connected_halves(
+        stream::iter(incomings),
+        sink::drain().sink_map_err(|e| match e {}),
+    );
     protocol_of_random_generation(party, 0, 3, rng).await
-}
-
-struct MockedDelivery<I, O> {
-    incoming: I,
-    outgoing: O,
-}
-
-impl<I, O> MockedDelivery<I, O> {
-    pub fn new(incoming: I, outgoing: O) -> Self {
-        Self { incoming, outgoing }
-    }
-}
-
-impl<M, I, O, IErr, OErr> Delivery<M> for MockedDelivery<I, O>
-where
-    I: Stream<Item = Result<Incoming<M>, IErr>> + Send + Unpin + 'static,
-    O: Sink<Outgoing<M>, Error = OErr> + Send + Unpin,
-    IErr: std::error::Error + Send + Sync + 'static,
-    OErr: std::error::Error + Send + Sync + 'static,
-{
-    type Send = O;
-    type Receive = I;
-    type SendError = OErr;
-    type ReceiveError = IErr;
-
-    fn split(self) -> (Self::Receive, Self::Send) {
-        (self.incoming, self.outgoing)
-    }
 }
 
 #[derive(Debug)]

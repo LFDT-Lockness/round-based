@@ -40,14 +40,15 @@
 //!     module
 //! * `state-machine` provides ability to carry out the protocol, defined as async function, via Sync
 //!    API, see [`state_machine`] module
-//! * `derive` is needed to use [`ProtocolMessage`](macro@ProtocolMessage) proc macro
+//! * `derive` is needed to use [`ProtocolMsg`](macro@ProtocolMsg) proc macro
 //! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](runtime)
 //!
 //! ## Join us in Discord!
 //! Feel free to reach out to us [in Discord](https://discordapp.com/channels/905194001349627914/1285268686147424388)!
 
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg, doc_cfg_hide))]
-#![forbid(unused_crate_dependencies, missing_docs)]
+#![warn(unused_crate_dependencies, missing_docs)]
+#![allow(async_fn_in_trait)]
 #![no_std]
 
 extern crate alloc;
@@ -66,9 +67,8 @@ mod false_positives {
 }
 
 mod delivery;
-pub mod party;
-pub mod rounds_router;
-pub mod runtime;
+pub mod mpc;
+pub mod round;
 #[cfg(feature = "state-machine")]
 pub mod state_machine;
 
@@ -76,17 +76,15 @@ pub mod state_machine;
 pub mod sim;
 
 pub use self::delivery::*;
+pub use self::mpc::MpcParty;
 #[doc(no_inline)]
-pub use self::{
-    party::{Mpc, MpcParty},
-    rounds_router::{ProtocolMessage, RoundMessage},
-};
+pub use self::mpc::{Mpc, MpcExecution, ProtocolMsg, RoundMsg};
 
 #[doc(hidden)]
 pub mod _docs;
 
-/// Derives [`ProtocolMessage`] and [`RoundMessage`] traits
+/// Derives [`ProtocolMsg`] and [`RoundMessage`] traits
 ///
-/// See [`ProtocolMessage`] docs for more details
+/// See [`ProtocolMsg`] docs for more details
 #[cfg(feature = "derive")]
-pub use round_based_derive::ProtocolMessage;
+pub use round_based_derive::ProtocolMsg;

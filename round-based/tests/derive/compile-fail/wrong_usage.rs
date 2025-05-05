@@ -1,9 +1,9 @@
-use round_based::ProtocolMessage;
+use round_based::ProtocolMsg;
 
-#[derive(ProtocolMessage)]
+#[derive(ProtocolMsg)]
 enum Msg {
     // Unnamed variant with single field is the only correct enum variant
-    // that doesn't contradicts with ProtocolMessage derivation
+    // that doesn't contradicts with ProtocolMsg derivation
     VariantA(u16),
     // Error: You can't have named variants
     VariantB { n: u32 },
@@ -15,20 +15,20 @@ enum Msg {
     VariantE,
 }
 
-// Structure cannot implement ProtocolMessage
-#[derive(ProtocolMessage)]
+// Structure cannot implement ProtocolMsg
+#[derive(ProtocolMsg)]
 struct Msg2 {
     some_field: u64,
 }
 
-// Union cannot implement ProtocolMessage
-#[derive(ProtocolMessage)]
+// Union cannot implement ProtocolMsg
+#[derive(ProtocolMsg)]
 union Msg3 {
     variant: u64,
 }
 
 // protocol_message is repeated twice
-#[derive(ProtocolMessage)]
+#[derive(ProtocolMsg)]
 #[protocol_message(root = one)]
 #[protocol_message(root = two)]
 enum Msg4 {
@@ -37,7 +37,7 @@ enum Msg4 {
 }
 
 // ", blah blah" is not permitted input
-#[derive(ProtocolMessage)]
+#[derive(ProtocolMsg)]
 #[protocol_message(root = one, blah blah)]
 enum Msg5 {
     One(u32),
@@ -45,7 +45,7 @@ enum Msg5 {
 }
 
 // `protocol_message` must not be empty
-#[derive(ProtocolMessage)]
+#[derive(ProtocolMsg)]
 #[protocol_message()]
 enum Msg6 {
     One(u32),

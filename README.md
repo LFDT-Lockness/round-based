@@ -40,7 +40,7 @@ the documentation of the protocol you're using), but usually they are:
     module
 * `state-machine` provides ability to carry out the protocol, defined as async function, via Sync
    API, see `state_machine` module
-* `derive` is needed to use `ProtocolMessage` proc macro
+* `derive` is needed to use `ProtocolMsg` proc macro
 * `runtime-tokio` enables tokio-specific implementation of async runtime
 
 ## Join us in Discord!

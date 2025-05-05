@@ -18,14 +18,13 @@ use alloc::{vec, vec::Vec};
 use serde::{Deserialize, Serialize};
 use sha2::{digest::Output, Digest, Sha256};
 
-use round_based::rounds_router::{
-    simple_store::{RoundInput, RoundInputError},
-    CompleteRoundError, RoundsRouter,
+use round_based::{
+    mpc::{Mpc, MpcExecution},
+    MsgId,
 };
-use round_based::{Delivery, Mpc, MpcParty, MsgId, Outgoing, PartyIndex, ProtocolMessage, SinkExt};
 
 /// Protocol message
-#[derive(Clone, Debug, PartialEq, ProtocolMessage, Serialize, Deserialize)]
+#[derive(round_based::ProtocolMsg, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Msg {
     /// Round 1
     CommitMsg(CommitMsg),
@@ -49,23 +48,19 @@ pub struct DecommitMsg {
 
 /// Carries out the randomness generation protocol
 pub async fn protocol_of_random_generation<R, M>(
-    party: M,
-    i: PartyIndex,
+    mut mpc: M,
+    i: u16,
     n: u16,
     mut rng: R,
-) -> Result<[u8; 32], Error<M::ReceiveError, M::SendError>>
+) -> Result<[u8; 32], Error<CompleteRoundErr<M>, M::SendErr>>
 where
-    M: Mpc<ProtocolMessage = Msg>,
+    M: Mpc<Msg = Msg>,
     R: rand_core::RngCore,
 {
-    let MpcParty { delivery, .. } = party.into_party();
-    let (incoming, mut outgoing) = delivery.split();
-
     // Define rounds
-    let mut rounds = RoundsRouter::<Msg>::builder();
-    let round1 = rounds.add_round(RoundInput::<CommitMsg>::broadcast(i, n));
-    let round2 = rounds.add_round(RoundInput::<DecommitMsg>::broadcast(i, n));
-    let mut rounds = rounds.listen(incoming);
+    let round1 = mpc.add_round(round_based::round::broadcast::<CommitMsg>(i, n));
+    let round2 = mpc.add_round(round_based::round::broadcast::<DecommitMsg>(i, n));
+    let mut mpc = mpc.finish();
 
     // --- The Protocol ---
 
@@ -75,32 +70,22 @@ where
 
     // 2. Commit local randomness (broadcast m=sha256(randomness))
     let commitment = Sha256::digest(local_randomness);
-    outgoing
-        .send(Outgoing::broadcast(Msg::CommitMsg(CommitMsg {
-            commitment,
-        })))
+    mpc.send_broadcast(Msg::CommitMsg(CommitMsg { commitment }))
         .await
         .map_err(Error::Round1Send)?;
 
     // 3. Receive committed randomness from other parties
-    let commitments = rounds
-        .complete(round1)
-        .await
-        .map_err(Error::Round1Receive)?;
+    let commitments = mpc.complete(round1).await.map_err(Error::Round1Receive)?;
 
     // 4. Open local randomness
-    outgoing
-        .send(Outgoing::broadcast(Msg::DecommitMsg(DecommitMsg {
-            randomness: local_randomness,
-        })))
-        .await
-        .map_err(Error::Round2Send)?;
+    mpc.send_broadcast(Msg::DecommitMsg(DecommitMsg {
+        randomness: local_randomness,
+    }))
+    .await
+    .map_err(Error::Round2Send)?;
 
     // 5. Receive opened local randomness from other parties, verify them, and output protocol randomness
-    let randomness = rounds
-        .complete(round2)
-        .await
-        .map_err(Error::Round2Receive)?;
+    let randomness = mpc.complete(round2).await.map_err(Error::Round2Receive)?;
 
     let mut guilty_parties = vec![];
     let mut output = local_randomness;
@@ -139,13 +124,13 @@ pub enum Error<RecvErr, SendErr> {
     Round1Send(#[source] SendErr),
     /// Couldn't receive a message in the first round
     #[error("receive messages at round 1")]
-    Round1Receive(#[source] CompleteRoundError<RoundInputError, RecvErr>),
+    Round1Receive(#[source] RecvErr),
     /// Couldn't send a message in the second round
     #[error("send a message at round 2")]
     Round2Send(#[source] SendErr),
     /// Couldn't receive a message in the second round
     #[error("receive messages at round 2")]
-    Round2Receive(#[source] CompleteRoundError<RoundInputError, RecvErr>),
+    Round2Receive(#[source] RecvErr),
 
     /// Some of the parties cheated
     #[error("malicious parties: {guilty_parties:?}")]
@@ -155,11 +140,15 @@ pub enum Error<RecvErr, SendErr> {
     },
 }
 
+/// Error indicating that receiving message at certain round failed
+pub type CompleteRoundErr<M> =
+    round_based::mpc::CompleteRoundErr<M, round_based::round::RoundInputError>;
+
 /// Blames a party in cheating during the protocol
 #[derive(Debug)]
 pub struct Blame {
     /// Index of the cheated party
-    pub guilty_party: PartyIndex,
+    pub guilty_party: u16,
     /// ID of the message that party sent in the first round
     pub commitment_msg: MsgId,
     /// ID of the message that party sent in the second round

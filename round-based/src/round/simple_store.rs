@@ -1,13 +1,13 @@
-//! Simple implementation of `MessagesStore`
+//! Simple implementation of [`RoundStore`]
 
 use alloc::{vec, vec::Vec};
 use core::iter;
 
 use crate::{Incoming, MessageType, MsgId, PartyIndex};
 
-use super::MessagesStore;
+use super::RoundStore;
 
-/// Simple implementation of [MessagesStore] that waits for all parties to send a message
+/// Simple implementation of [`RoundStore`] that waits for all parties to send a message
 ///
 /// Round is considered complete when the store received a message from every party. Note that the
 /// store will ignore all the messages such as `msg.sender == local_party_index`.
@@ -102,7 +102,7 @@ impl<M> RoundInput<M> {
     }
 }
 
-impl<M> MessagesStore for RoundInput<M>
+impl<M> RoundStore for RoundInput<M>
 where
     M: 'static,
 {
@@ -251,7 +251,7 @@ impl<M> RoundMsgs<M> {
     }
 }
 
-/// Error explaining why `RoundInput` wasn't able to process a message
+/// Error explaining why [`RoundInput`] wasn't able to process a message
 #[derive(Debug, thiserror::Error)]
 pub enum RoundInputError {
     /// Party sent two messages in one round
@@ -292,12 +292,25 @@ pub enum RoundInputError {
     },
 }
 
+/// Round messages store for p2p round
+///
+/// Alias to [`RoundInput::p2p`]
+pub fn p2p<M>(i: u16, n: u16) -> RoundInput<M> {
+    RoundInput::p2p(i, n)
+}
+/// Round messages store for broadcast round
+///
+/// Alias to [`RoundInput::broadcast`]
+pub fn broadcast<M>(i: u16, n: u16) -> RoundInput<M> {
+    RoundInput::broadcast(i, n)
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
     use matches::assert_matches;
 
-    use crate::rounds_router::store::MessagesStore;
+    use crate::round::RoundStore;
     use crate::{Incoming, MessageType};
 
     use super::{RoundInput, RoundInputError};
