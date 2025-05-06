@@ -16,7 +16,11 @@ pub struct Incoming<M> {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MessageType {
     /// Message was broadcasted
-    Broadcast,
+    Broadcast {
+        /// Indicates that message was reliably broadcasted, meaning that it's guaranteed (cryptographically or through
+        /// other trust assumptions) that all honest participants of the protocol received the same message
+        reliable: bool,
+    },
     /// P2P message
     P2P,
 }
@@ -68,9 +72,14 @@ impl<M> Incoming<M> {
         }
     }
 
-    /// Checks whether it's broadcast message
+    /// Checks whether it's broadcast message (regardless if it's reliable or not)
     pub fn is_broadcast(&self) -> bool {
-        matches!(self.msg_type, MessageType::Broadcast)
+        matches!(self.msg_type, MessageType::Broadcast { .. })
+    }
+
+    /// Checks if message was reliably broadcasted
+    pub fn is_reliably_broadcasted(&self) -> bool {
+        matches!(self.msg_type, MessageType::Broadcast { reliable: true })
     }
 
     /// Checks whether it's p2p message
@@ -90,9 +99,17 @@ pub struct Outgoing<M> {
 
 impl<M> Outgoing<M> {
     /// Constructs an outgoing message addressed to all parties
-    pub fn broadcast(msg: M) -> Self {
+    pub fn all_parties(msg: M) -> Self {
         Self {
-            recipient: MessageDestination::AllParties,
+            recipient: MessageDestination::AllParties { reliable: false },
+            msg,
+        }
+    }
+
+    /// Constructs an outgoing message addressed to all parties via reliable broadcast channel
+    pub fn reliable_broadcast(msg: M) -> Self {
+        Self {
+            recipient: MessageDestination::AllParties { reliable: true },
             msg,
         }
     }
@@ -139,7 +156,12 @@ impl<M> Outgoing<M> {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MessageDestination {
     /// Broadcast message
-    AllParties,
+    AllParties {
+        /// Indicates that message needs to be reliably broadcasted, meaning that when recipient receives this message,
+        /// it must be assured (cryptographically or through other trust assumptions) that all honest participants of the
+        /// protocol received the same message
+        reliable: bool,
+    },
     /// P2P message
     OneParty(PartyIndex),
 }
@@ -149,8 +171,12 @@ impl MessageDestination {
     pub fn is_p2p(&self) -> bool {
         matches!(self, MessageDestination::OneParty(_))
     }
-    /// Returns `true` if it's broadcast message
+    /// Returns `true` if it's broadcast message (regardless if it's reliable or not)
     pub fn is_broadcast(&self) -> bool {
-        matches!(self, MessageDestination::AllParties)
+        matches!(self, MessageDestination::AllParties { .. })
+    }
+    /// Returns `true` if it's reliable broadcast message
+    pub fn is_reliable_broadcast(&self) -> bool {
+        matches!(self, MessageDestination::AllParties { reliable: true })
     }
 }

@@ -212,7 +212,7 @@ impl<M> Sink<Outgoing<M>> for MockedOutgoing<M> {
 
     fn start_send(self: Pin<&mut Self>, msg: Outgoing<M>) -> Result<(), Self::Error> {
         let msg_type = match msg.recipient {
-            MessageDestination::AllParties => MessageType::Broadcast,
+            MessageDestination::AllParties { reliable } => MessageType::Broadcast { reliable },
             MessageDestination::OneParty(_) => MessageType::P2P,
         };
         self.sender

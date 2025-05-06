@@ -69,8 +69,9 @@ where
     rng.fill_bytes(&mut local_randomness);
 
     // 2. Commit local randomness (broadcast m=sha256(randomness))
+    // This message must be reliably broadcasted to guarantee protocol security
     let commitment = Sha256::digest(local_randomness);
-    mpc.send_broadcast(Msg::CommitMsg(CommitMsg { commitment }))
+    mpc.reliably_broadcast(Msg::CommitMsg(CommitMsg { commitment }))
         .await
         .map_err(Error::Round1Send)?;
 
@@ -78,7 +79,9 @@ where
     let commitments = mpc.complete(round1).await.map_err(Error::Round1Receive)?;
 
     // 4. Open local randomness
-    mpc.send_broadcast(Msg::DecommitMsg(DecommitMsg {
+    // This message will be sent to all other participants, but it doesn't require
+    // a reliable broadcast
+    mpc.send_to_all(Msg::DecommitMsg(DecommitMsg {
         randomness: local_randomness,
     }))
     .await
@@ -242,7 +245,7 @@ mod tests {
             .received_msg(Incoming {
                 id: 0,
                 sender: 1,
-                msg_type: round_based::MessageType::Broadcast,
+                msg_type: round_based::MessageType::Broadcast { reliable: true },
                 msg: Msg::CommitMsg(CommitMsg {
                     commitment: party1_com,
                 }),
@@ -256,7 +259,7 @@ mod tests {
             .received_msg(Incoming {
                 id: 1,
                 sender: 2,
-                msg_type: round_based::MessageType::Broadcast,
+                msg_type: round_based::MessageType::Broadcast { reliable: true },
                 msg: Msg::CommitMsg(CommitMsg {
                     commitment: party2_com,
                 }),
@@ -289,7 +292,7 @@ mod tests {
             .received_msg(Incoming {
                 id: 3,
                 sender: 1,
-                msg_type: round_based::MessageType::Broadcast,
+                msg_type: round_based::MessageType::Broadcast { reliable: false },
                 msg: Msg::DecommitMsg(DecommitMsg {
                     randomness: party1_rng,
                 }),
@@ -303,7 +306,7 @@ mod tests {
             .received_msg(Incoming {
                 id: 3,
                 sender: 2,
-                msg_type: round_based::MessageType::Broadcast,
+                msg_type: round_based::MessageType::Broadcast { reliable: false },
                 msg: Msg::DecommitMsg(DecommitMsg {
                     randomness: party2_rng,
                 }),

@@ -101,9 +101,26 @@ pub trait MpcExecution {
         self.send(Outgoing::p2p(recipient, msg)).await
     }
 
-    /// Sends a broadcast message
-    async fn send_broadcast(&mut self, msg: Self::Msg) -> Result<(), Self::SendErr> {
-        self.send(Outgoing::broadcast(msg)).await
+    /// Sends a message that will be received by all parties
+    ///
+    /// Message will be broadcasted, but not reliably. If you need a reliable broadcast, use
+    /// [`reliably_broadcast`] method.
+    async fn send_to_all(&mut self, msg: Self::Msg) -> Result<(), Self::SendErr> {
+        self.send(Outgoing::all_parties(msg)).await
+    }
+
+    /// Reliably broadcasts a message
+    ///
+    /// Message will be received by all participants of the protocol. Moreover, when recipient receives a
+    /// message, it will be assured (cryptographically or through other trust assumptions) that all honest
+    /// participants of the protocol received the same message.
+    ///
+    /// It's a responsibility of a message delivery layer to provide the reliable broadcast mechanism. If
+    /// it's not supported, this method returns an error. Note that not every MPC protocol requires the
+    /// reliable broadcast, so it's totally normal to have a message delivery implementation that does
+    /// not support it.
+    async fn reliably_broadcast(&mut self, msg: Self::Msg) -> Result<(), Self::SendErr> {
+        self.send(Outgoing::reliable_broadcast(msg)).await
     }
 
     /// Yields execution

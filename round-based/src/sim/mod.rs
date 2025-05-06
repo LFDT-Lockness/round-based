@@ -418,7 +418,7 @@ impl<M: Clone> MessagesQueue<M> {
 
     fn send_message(&mut self, sender: u16, msg: Outgoing<M>) -> Result<(), SimError> {
         match msg.recipient {
-            MessageDestination::AllParties => {
+            MessageDestination::AllParties { reliable } => {
                 let mut msg_ids = self.next_id..;
                 for (destination, msg_id) in (0..)
                     .zip(&mut self.queue)
@@ -429,7 +429,7 @@ impl<M: Clone> MessagesQueue<M> {
                     destination.push_back(Incoming {
                         id: msg_id,
                         sender,
-                        msg_type: MessageType::Broadcast,
+                        msg_type: MessageType::Broadcast { reliable },
                         msg: msg.msg.clone(),
                     })
                 }

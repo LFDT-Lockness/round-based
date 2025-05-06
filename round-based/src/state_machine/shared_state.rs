@@ -29,7 +29,7 @@ impl<M> SharedStateRef<M> {
         )))
     }
 
-    /// Any protocol-initated work (like flushing message to be sent, receiving message, etc.) can
+    /// Any protocol-initiated work (like flushing message to be sent, receiving message, etc.) can
     /// only be scheduled when there was no other task scheduled.
     ///
     /// This method checks whether a task can be scheduled, and returns [`CanSchedule`] which
@@ -185,7 +185,7 @@ mod test {
         let executor_state = shared_state;
 
         let msg = Outgoing {
-            recipient: MessageDestination::AllParties,
+            recipient: MessageDestination::AllParties { reliable: false },
             msg: 1,
         };
         outgoings_state
@@ -235,7 +235,7 @@ mod test {
         let incoming_msg = Incoming {
             id: 0,
             sender: 1,
-            msg_type: crate::MessageType::Broadcast,
+            msg_type: crate::MessageType::Broadcast { reliable: false },
             msg: "hello",
         };
         executor_state.executor_received_msg(incoming_msg).unwrap();
@@ -293,7 +293,7 @@ mod test {
             let shared_state = SharedStateRef::new();
             shared_state
                 .protocol_saves_msg_to_be_sent(Outgoing {
-                    recipient: MessageDestination::AllParties,
+                    recipient: MessageDestination::AllParties { reliable: false },
                     msg: 1,
                 })
                 .expect("msg slot isn't empty");

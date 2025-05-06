@@ -1,5 +1,7 @@
 //! Primitives that process and collect messages received at certain round
 
+use core::any::Any;
+
 use crate::Incoming;
 
 pub use self::simple_store::{broadcast, p2p, RoundInput, RoundInputError, RoundMsgs};
@@ -44,4 +46,94 @@ pub trait RoundStore: Sized + 'static {
     /// If store indicated that it needs no more messages (ie `store.wants_more() == false`), then
     /// this function must return `Ok(_)`.
     fn output(self) -> Result<Self::Output, Self>;
+
+    /// Interface that exposes ability to retrieve generic information about the round store
+    ///
+    /// For reading store properties, it's recommended to use [`RoundStoreExt::read_prop`] method which
+    /// uses this function internally.
+    ///
+    /// When implementing `RoundStore` trait, if you wish to expose no extra information, leave the default
+    /// implementation of this method. If you do wish to expose certain properties that will be accessible
+    /// through [`RoundStoreExt::read_prop`], follow this example:
+    ///
+    /// ```rust
+    /// todo!()
+    /// ```
+    fn read_any_prop(&self, property: &mut dyn Any) {
+        let _ = property;
+    }
+}
+
+/// Extra functionalities defined for any [`RoundStore`]
+pub trait RoundStoreExt: RoundStore {
+    /// Reads a property `P` of the store
+    ///
+    /// Returns `Some(property_value)` if this store exposes property `P`, otherwise returns `None`
+    fn read_prop<P: Any>(&self) -> Option<P>;
+
+    /// Constructs a new store that exposes property `P` with provided value
+    ///
+    /// If store already provides a property `P`, it will be overwritten
+    fn set_prop<P: Clone + 'static>(self, value: P) -> WithProp<P, Self>;
+}
+
+impl<S: RoundStore> RoundStoreExt for S {
+    fn read_prop<P: Any>(&self) -> Option<P> {
+        let mut p: Option<P> = None;
+        self.read_any_prop(&mut p);
+        p
+    }
+
+    fn set_prop<P: Clone + 'static>(self, value: P) -> WithProp<P, Self> {
+        WithProp {
+            prop: value,
+            store: self,
+        }
+    }
+}
+
+/// Returned by [`RoundStoreExt::set_prop`]
+pub struct WithProp<P, S> {
+    prop: P,
+    store: S,
+}
+
+impl<P, S> RoundStore for WithProp<P, S>
+where
+    S: RoundStore,
+    P: Clone + 'static,
+{
+    type Msg = S::Msg;
+    type Output = S::Output;
+    type Error = S::Error;
+
+    #[inline(always)]
+    fn add_message(&mut self, msg: Incoming<Self::Msg>) -> Result<(), Self::Error> {
+        self.store.add_message(msg)
+    }
+    #[inline(always)]
+    fn wants_more(&self) -> bool {
+        self.store.wants_more()
+    }
+    #[inline(always)]
+    fn output(self) -> Result<Self::Output, Self> {
+        self.store.output().map_err(|store| Self {
+            prop: self.prop,
+            store,
+        })
+    }
+
+    fn read_any_prop(&self, property: &mut dyn Any) {
+        if let Some(p) = property.downcast_mut::<Option<P>>() {
+            *p = Some(self.prop.clone())
+        } else {
+            self.store.read_any_prop(property);
+        }
+    }
+}
+
+/// Properties that may be exposed by [`RoundStore`]
+pub mod props {
+    /// Indicates whether the round requires messages to be reliably broadcasted
+    pub struct RequiresReliableBroadcast(pub bool);
 }
