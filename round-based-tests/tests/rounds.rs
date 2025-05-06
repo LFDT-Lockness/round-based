@@ -8,10 +8,7 @@ use rand_chacha::rand_core::SeedableRng;
 use random_generation_protocol::{
     protocol_of_random_generation, CommitMsg, DecommitMsg, Error, Msg,
 };
-use round_based::{
-    mpc::errors::{CompleteRoundError, WithIo},
-    Incoming, MessageType,
-};
+use round_based::{mpc::party::CompleteRoundError, Incoming, MessageType};
 
 const PARTY0_SEED: [u8; 32] =
     hex!("6772d079d5c984b3936a291e36b0d3dc6c474e36ed4afdfc973ef79a431ca870");
@@ -94,9 +91,7 @@ async fn protocol_terminates_with_error_if_party_tries_to_overwrite_message_at_r
 
     assert_matches!(
         output,
-        Err(Error::Round1Receive(WithIo::Other(
-            CompleteRoundError::ProcessMsg(_)
-        )))
+        Err(Error::Round1Receive(CompleteRoundError::ProcessMsg(_)))
     )
 }
 
@@ -140,9 +135,7 @@ async fn protocol_terminates_with_error_if_party_tries_to_overwrite_message_at_r
 
     assert_matches!(
         output,
-        Err(Error::Round2Receive(WithIo::Other(
-            CompleteRoundError::ProcessMsg(_)
-        )))
+        Err(Error::Round2Receive(CompleteRoundError::ProcessMsg(_)))
     )
 }
 
@@ -160,9 +153,7 @@ async fn protocol_terminates_if_received_message_from_unknown_sender_at_round1()
 
     assert_matches!(
         output,
-        Err(Error::Round1Receive(WithIo::Other(
-            CompleteRoundError::ProcessMsg(_)
-        )))
+        Err(Error::Round1Receive(CompleteRoundError::ProcessMsg(_)))
     )
 }
 
@@ -298,7 +289,7 @@ async fn protocol_terminates_with_error_if_io_error_happens_at_round2() {
     ])
     .await;
 
-    assert_matches!(output, Err(Error::Round2Receive(WithIo::Io(_))));
+    assert_matches!(output, Err(Error::Round2Receive(CompleteRoundError::Io(_))));
 }
 
 #[tokio::test]
@@ -340,7 +331,7 @@ async fn protocol_terminates_with_error_if_io_error_happens_at_round1() {
     ])
     .await;
 
-    assert_matches!(output, Err(Error::Round1Receive(WithIo::Io(_))));
+    assert_matches!(output, Err(Error::Round1Receive(CompleteRoundError::Io(_))));
 }
 
 #[tokio::test]
@@ -373,7 +364,10 @@ async fn protocol_terminates_with_error_if_unexpected_eof_happens_at_round2() {
     ])
     .await;
 
-    assert_matches!(output, Err(Error::Round2Receive(WithIo::UnexpectedEof)));
+    assert_matches!(
+        output,
+        Err(Error::Round2Receive(CompleteRoundError::UnexpectedEof))
+    );
 }
 
 async fn run_protocol<E, I>(
@@ -381,10 +375,7 @@ async fn run_protocol<E, I>(
 ) -> Result<
     [u8; 32],
     random_generation_protocol::Error<
-        round_based::mpc::errors::WithIo<
-            E,
-            round_based::mpc::errors::CompleteRoundError<round_based::round::RoundInputError>,
-        >,
+        round_based::mpc::party::CompleteRoundError<round_based::round::RoundInputError, E>,
         E,
     >,
 >

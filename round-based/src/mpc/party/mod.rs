@@ -1,8 +1,17 @@
+//! Provides [`MpcParty`], default engine for MPC protocol execution that implements [`Mpc`] and [`MpcExecution`] traits
+
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
 
 use crate::{round::RoundStore, Incoming, Outgoing};
 
-use super::{rounds_router, runtime, Mpc, MpcExecution, ProtocolMsg, RoundMsg};
+use super::{Mpc, MpcExecution, ProtocolMsg, RoundMsg};
+
+mod router;
+pub mod runtime;
+
+pub use self::router::{errors::RouterError, Round};
+#[doc(no_inline)]
+pub use self::runtime::AsyncRuntime;
 
 /// MPC engine, carries out the protocol
 ///
@@ -13,7 +22,7 @@ use super::{rounds_router, runtime, Mpc, MpcExecution, ProtocolMsg, RoundMsg};
 ///
 /// Implements [`Mpc`] and [`MpcExecution`].
 pub struct MpcParty<M, D, R = runtime::DefaultRuntime, const SETUP_COMPLETE: bool = false> {
-    router: rounds_router::RoundsRouter<M>,
+    router: router::RoundsRouter<M>,
     io: D,
     runtime: R,
 }
@@ -27,7 +36,7 @@ where
     /// Constructs [`MpcParty`]
     pub fn connected(delivery: D) -> Self {
         Self {
-            router: rounds_router::RoundsRouter::new(),
+            router: router::RoundsRouter::new(),
             io: delivery,
             runtime: runtime::DefaultRuntime::default(),
         }
@@ -94,11 +103,11 @@ where
     D: Sink<Outgoing<M>, Error = IoErr> + Unpin,
     AsyncR: runtime::AsyncRuntime,
 {
-    type Round<R> = rounds_router::Round<R>;
+    type Round<R> = router::Round<R>;
 
     type Msg = M;
 
-    type CompleteRoundErr<E> = WithIo<IoErr, rounds_router::errors::CompleteRoundError<E>>;
+    type CompleteRoundErr<E> = CompleteRoundError<E, IoErr>;
 
     type SendErr = IoErr;
 
@@ -112,7 +121,7 @@ where
     {
         // Check if round is already completed
         round = match self.router.complete_round(round) {
-            Ok(output) => return output.map_err(WithIo::Other),
+            Ok(output) => return output.map_err(|e| e.map_io_err(|e| match e {})),
             Err(w) => w,
         };
 
@@ -122,15 +131,13 @@ where
                 .io
                 .next()
                 .await
-                .ok_or(WithIo::UnexpectedEof)?
-                .map_err(WithIo::Io)?;
-            self.router
-                .received_msg(incoming)
-                .map_err(|err| WithIo::Other(err.into()))?;
+                .ok_or(CompleteRoundError::UnexpectedEof)?
+                .map_err(CompleteRoundError::Io)?;
+            self.router.received_msg(incoming)?;
 
             // Check if round was just completed
             round = match self.router.complete_round(round) {
-                Ok(output) => return output.map_err(WithIo::Other),
+                Ok(output) => return output.map_err(|e| e.map_io_err(|e| match e {})),
                 Err(w) => w,
             };
         }
@@ -143,20 +150,6 @@ where
     async fn yield_now(&self) {
         self.runtime.yield_now().await
     }
-}
-
-/// Error indicating that either `IoErr` occurred, or `OtherErr`
-#[derive(Debug, thiserror::Error)]
-pub enum WithIo<IoErr, OtherErr> {
-    /// IO error
-    #[error(transparent)]
-    Io(IoErr),
-    /// Unexpected EOF
-    #[error("unexpected eof")]
-    UnexpectedEof,
-    /// Other error
-    #[error(transparent)]
-    Other(OtherErr),
 }
 
 pin_project_lite::pin_project! {
@@ -229,5 +222,67 @@ where
     ) -> core::task::Poll<Result<(), Self::Error>> {
         let this = self.project();
         this.outgoings.poll_close(cx)
+    }
+}
+
+/// Error returned by [`MpcParty::complete`]
+///
+/// May indicate malicious behavior (e.g. adversary sent a message that aborts protocol execution)
+/// or some misconfiguration of the protocol network (e.g. received a message from the round that
+/// was not registered via [`Mpc::add_round`]).
+#[derive(Debug, thiserror::Error)]
+pub enum CompleteRoundError<ProcessErr, IoErr> {
+    /// [`RoundStore`] returned an error
+    ///
+    /// Refer to this rounds store documentation to understand why it could fail
+    #[error(transparent)]
+    ProcessMsg(ProcessErr),
+
+    /// Router error
+    ///
+    /// Indicates that for some reason router was not able to process a message. This can be the case of:
+    /// - Router API misuse \
+    ///   E.g. when received a message from the round that was not registered in the router
+    /// - Improper [`RoundStore`] implementation \
+    ///   Indicates that round store is not properly implemented and contains a flaw. \
+    ///   For instance, this error is returned when round store indicates that it doesn't need
+    ///   any more messages ([`RoundStore::wants_more`]
+    ///   returns `false`), but then it didn't output anything ([`RoundStore::output`]
+    ///   returns `Err(_)`)
+    /// - Bug in the router
+    ///
+    /// This error is always related to some implementation flaw or bug: either in the code that uses
+    /// the router, or in the round store implementation, or in the router itself. When implementation
+    /// is correct, this error never appears. Thus, it should not be possible for the adversary to "make
+    /// this error happen."
+    Router(router::errors::RouterError),
+
+    /// Receiving the next message resulted into I/O error
+    Io(IoErr),
+    /// Channel of incoming messages was closed before protocol completion
+    UnexpectedEof,
+}
+
+impl<ProcessErr, IoErr> CompleteRoundError<ProcessErr, IoErr> {
+    /// Maps I/O error
+    pub fn map_io_err<E>(self, f: impl FnOnce(IoErr) -> E) -> CompleteRoundError<ProcessErr, E> {
+        match self {
+            CompleteRoundError::ProcessMsg(e) => CompleteRoundError::ProcessMsg(e),
+            CompleteRoundError::Router(e) => CompleteRoundError::Router(e),
+            CompleteRoundError::Io(e) => CompleteRoundError::Io(f(e)),
+            CompleteRoundError::UnexpectedEof => CompleteRoundError::UnexpectedEof,
+        }
+    }
+    /// Maps [`CompleteRoundError::ProcessMsg`]
+    pub fn map_process_err<E>(
+        self,
+        f: impl FnOnce(ProcessErr) -> E,
+    ) -> CompleteRoundError<E, IoErr> {
+        match self {
+            CompleteRoundError::ProcessMsg(e) => CompleteRoundError::ProcessMsg(f(e)),
+            CompleteRoundError::Router(e) => CompleteRoundError::Router(e),
+            CompleteRoundError::Io(e) => CompleteRoundError::Io(e),
+            CompleteRoundError::UnexpectedEof => CompleteRoundError::UnexpectedEof,
+        }
     }
 }

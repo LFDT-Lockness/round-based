@@ -41,7 +41,7 @@
 //! * `state-machine` provides ability to carry out the protocol, defined as async function, via Sync
 //!   API, see [`state_machine`] module
 //! * `derive` is needed to use [`ProtocolMsg`](macro@ProtocolMsg) proc macro
-//! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](mpc::runtime)
+//! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](mpc::party::runtime)
 //!
 //! ## Join us in Discord!
 //! Feel free to reach out to us [in Discord](https://discordapp.com/channels/905194001349627914/1285268686147424388)!

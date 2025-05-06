@@ -11,7 +11,7 @@ impl<M> Runtime<M> {
     }
 }
 
-impl<M> crate::mpc::runtime::AsyncRuntime for Runtime<M> {
+impl<M> crate::mpc::party::AsyncRuntime for Runtime<M> {
     async fn yield_now(&self) {
         YieldNow {
             shared_state: self.shared_state.clone(),

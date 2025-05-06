@@ -37,19 +37,10 @@
 
 use crate::{round::RoundStore, Outgoing, PartyIndex};
 
-mod party;
-mod rounds_router;
-pub mod runtime;
+pub mod party;
 
-pub use self::{
-    party::{Halves, MpcParty},
-    rounds_router::Round,
-};
-
-/// When something goes wrong
-pub mod errors {
-    pub use super::{party::WithIo, rounds_router::errors::*};
-}
+#[doc(no_inline)]
+pub use self::party::{Halves, MpcParty};
 
 /// Abstracts functionalities needed for MPC protocol execution
 pub trait Mpc {

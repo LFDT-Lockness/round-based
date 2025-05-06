@@ -4,7 +4,7 @@
 //! incoming messages between them
 
 use alloc::{boxed::Box, collections::BTreeMap};
-use core::{any::Any, mem};
+use core::{any::Any, convert::Infallible, mem};
 
 use phantom_type::PhantomType;
 use tracing::{error, trace_span, warn};
@@ -82,7 +82,7 @@ where
     pub fn complete_round<R>(
         &mut self,
         round: Round<R>,
-    ) -> Result<Result<R::Output, errors::CompleteRoundError<R::Error>>, Round<R>>
+    ) -> Result<Result<R::Output, errors::CompleteRoundError<R::Error, Infallible>>, Round<R>>
     where
         R: RoundStore,
         M: RoundMsg<R::Msg>,
@@ -110,7 +110,7 @@ where
 
     fn retrieve_round_output<R>(
         round: &mut Box<dyn ProcessRoundMessage<Msg = M>>,
-    ) -> Result<R::Output, errors::CompleteRoundError<R::Error>>
+    ) -> Result<R::Output, errors::CompleteRoundError<R::Error, Infallible>>
     where
         R: RoundStore,
         M: RoundMsg<R::Msg>,
@@ -120,7 +120,7 @@ where
                 .downcast::<R::Output>()
                 .or(Err(errors::Bug::MismatchedOutputType))?),
             Ok(Err(any)) => Err(*any
-                .downcast::<errors::CompleteRoundError<R::Error>>()
+                .downcast::<errors::CompleteRoundError<R::Error, Infallible>>()
                 .or(Err(errors::Bug::MismatchedErrorType))?),
             Err(err) => Err(errors::Bug::TakeRoundResult(err).into()),
         }
@@ -177,7 +177,7 @@ enum TakeOutputError {
 
 enum ProcessRoundMessageImpl<S: RoundStore, M: ProtocolMsg + RoundMsg<S::Msg>> {
     InProgress { store: S, _ph: PhantomType<fn(M)> },
-    Completed(Result<S::Output, errors::CompleteRoundError<S::Error>>),
+    Completed(Result<S::Output, errors::CompleteRoundError<S::Error, Infallible>>),
     Gone,
 }
 
@@ -206,7 +206,7 @@ where
     fn _process_message(
         store: &mut S,
         msg: Incoming<M>,
-    ) -> Result<(), errors::CompleteRoundError<S::Error>> {
+    ) -> Result<(), errors::CompleteRoundError<S::Error, Infallible>> {
         let msg = msg.try_map(M::from_protocol_msg).map_err(|msg| {
             errors::Bug::MessageFromAnotherRound {
                 actual_number: msg.round(),
@@ -307,6 +307,8 @@ impl NeedsMoreMessages {
 
 /// When something goes wrong
 pub mod errors {
+    pub use crate::mpc::party::CompleteRoundError;
+
     use super::TakeOutputError;
 
     #[derive(Debug, thiserror::Error)]
@@ -314,39 +316,6 @@ pub mod errors {
     pub(in crate::mpc) struct UnregisteredRound {
         pub n: u16,
         pub(super) witness_provided: bool,
-    }
-
-    /// Error returned when processing incoming messages at certain round
-    ///
-    /// May indicate malicious behavior (e.g. adversary sent a message that aborts protocol execution)
-    /// or some misconfiguration of the protocol network (e.g. received a message from the round that
-    /// was not registered via [`Mpc::add_round`](crate::Mpc::add_round)).
-    #[derive(Debug, thiserror::Error)]
-    pub enum CompleteRoundError<ProcessErr> {
-        /// [`RoundStore`](crate::round::RoundStore) returned an error
-        ///
-        /// Refer to this rounds store documentation to understand why it could fail
-        #[error(transparent)]
-        ProcessMsg(ProcessErr),
-
-        /// Router error
-        ///
-        /// Indicates that for some reason router was not able to process a message. This can be the case of:
-        /// - Router API misuse \
-        ///   E.g. when received a message from the round that was not registered in the router
-        /// - Improper [`RoundStore`](crate::round::RoundStore) implementation \
-        ///   Indicates that round store is not properly implemented and contains a flaw. \
-        ///   For instance, this error is returned when round store indicates that it doesn't need
-        ///   any more messages ([`RoundStore::wants_more`](crate::round::RoundStore::wants_more)
-        ///   returns `false`), but then it didn't output anything ([`RoundStore::output`](crate::round::RoundStore::output)
-        ///   returns `Err(_)`)
-        /// - Bug in the router
-        ///
-        /// This error is always related to some implementation flaw or bug: either in the code that uses
-        /// the router, or in the round store implementation, or in the router itself. When implementation
-        /// is correct, this error never appears. Thus, it should not be possible for the adversary to "make
-        /// this error happen."
-        Router(RouterError),
     }
 
     /// Router error
@@ -421,7 +390,7 @@ pub mod errors {
 
     macro_rules! impl_round_complete_from {
         ($(|$err:ident: $err_ty:ty| $err_fn:expr),+$(,)?) => {$(
-            impl<E> From<$err_ty> for CompleteRoundError<E> {
+            impl<E, IoErr> From<$err_ty> for CompleteRoundError<E, IoErr> {
                 fn from($err: $err_ty) -> Self {
                     $err_fn
                 }
