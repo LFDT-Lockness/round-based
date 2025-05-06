@@ -52,7 +52,7 @@ pub async fn protocol_of_random_generation<R, M>(
     i: u16,
     n: u16,
     mut rng: R,
-) -> Result<[u8; 32], Error<CompleteRoundErr<M>, M::SendErr>>
+) -> Result<[u8; 32], ErrorM<M>>
 where
     M: Mpc<Msg = Msg>,
     R: rand_core::RngCore,
@@ -140,9 +140,11 @@ pub enum Error<RecvErr, SendErr> {
     },
 }
 
-/// Error indicating that receiving message at certain round failed
-pub type CompleteRoundErr<M> =
-    round_based::mpc::CompleteRoundErr<M, round_based::round::RoundInputError>;
+/// Error type deduced from `M: Mpc`
+pub type ErrorM<M> = Error<
+    round_based::mpc::CompleteRoundErr<M, round_based::round::RoundInputError>,
+    <M as Mpc>::SendErr,
+>;
 
 /// Blames a party in cheating during the protocol
 #[derive(Debug)]
