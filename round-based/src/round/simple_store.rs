@@ -16,8 +16,9 @@ use super::RoundStore;
 ///
 /// ## Example
 /// ```rust
-/// # use round_based::rounds_router::{MessagesStore, simple_store::RoundInput};
-/// # use round_based::{Incoming, MessageType};
+/// use round_based::{Incoming, MessageType};
+/// use round_based::round::{RoundStore, RoundInput};
+///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut input = RoundInput::<&'static str>::broadcast(1, 3);
 /// input.add_message(Incoming{
@@ -35,9 +36,12 @@ use super::RoundStore;
 /// assert!(!input.wants_more());
 ///
 /// let output = input.output().unwrap();
-/// assert_eq!(output.clone().into_vec_without_me(), ["first party message", "third party message"]);
 /// assert_eq!(
-///     output.clone().into_vec_including_me("my msg"),
+///     output.clone().into_vec_without_me(),
+///     ["first party message", "third party message"]
+/// );
+/// assert_eq!(
+///     output.into_vec_including_me("my msg"),
 ///     ["first party message", "my msg", "third party message"]
 /// );
 /// # Ok(()) }

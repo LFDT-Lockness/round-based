@@ -1,51 +1,7 @@
 //! Routes incoming MPC messages between rounds
 //!
-//! [`RoundsRouter`] is an essential building block of MPC protocol, it processes incoming messages, groups
-//! them by rounds, and provides convenient API for retrieving received messages at certain round.
-//!
-//! ## Example
-//!
-//! ```rust
-//! use round_based::{Mpc, MpcParty, ProtocolMsg, Delivery, PartyIndex};
-//! use round_based::rounds_router::{RoundsRouter, simple_store::{RoundInput, RoundMsgs}};
-//!
-//! #[derive(ProtocolMsg)]
-//! pub enum Msg {
-//!     Round1(Msg1),
-//!     Round2(Msg2),
-//! }
-//!
-//! pub struct Msg1 { /* ... */ }
-//! pub struct Msg2 { /* ... */ }
-//!
-//! pub async fn some_mpc_protocol<M>(party: M, i: PartyIndex, n: u16) -> Result<Output, Error>
-//! where
-//!     M: Mpc<ProtocolMsg = Msg>,
-//! {
-//!     let MpcParty{ delivery, .. } = party.into_party();
-//!
-//!     let (incomings, _outgoings) = delivery.split();
-//!
-//!     // Build `Rounds`
-//!     let mut rounds = RoundsRouter::builder();
-//!     let round1 = rounds.add_round(RoundInput::<Msg1>::broadcast(i, n));
-//!     let round2 = rounds.add_round(RoundInput::<Msg2>::p2p(i, n));
-//!     let mut rounds = rounds.listen(incomings);
-//!
-//!     // Receive messages from round 1
-//!     let msgs: RoundMsgs<Msg1> = rounds.complete(round1).await?;
-//!
-//!     // ... process received messages
-//!
-//!     // Receive messages from round 2
-//!     let msgs = rounds.complete(round2).await?;
-//!
-//!     // ...
-//!     # todo!()
-//! }
-//! # type Output = ();
-//! # type Error = Box<dyn std::error::Error>;
-//! ```
+//! Router is a building block, used in MpcParty to register rounds and route
+//! incoming messages between them
 
 use alloc::{boxed::Box, collections::BTreeMap};
 use core::{any::Any, mem};

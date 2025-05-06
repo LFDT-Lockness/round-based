@@ -3,27 +3,32 @@
 //! [`MpcParty`] is party of MPC protocol, connected to network, ready to start carrying out the protocol.
 //!
 //! ```rust
-//! use round_based::{Mpc, MpcParty, Delivery, PartyIndex};
+//! use round_based::{Incoming, Outgoing};
 //!
-//! # struct KeygenMsg;
+//! # #[derive(round_based::ProtocolMsg)]
+//! # enum KeygenMsg {}
 //! # struct KeyShare;
 //! # struct Error;
 //! # type Result<T> = std::result::Result<T, Error>;
 //! # async fn doc() -> Result<()> {
-//! async fn keygen<M>(party: M, i: PartyIndex, n: u16) -> Result<KeyShare>
+//! async fn keygen<M>(party: M, i: u16, n: u16) -> Result<KeyShare>
 //! where
-//!     M: Mpc<ProtocolMsg = KeygenMsg>
+//!     M: round_based::Mpc<Msg = KeygenMsg>
 //! {
 //!     // ...
 //! # unimplemented!()
 //! }
-//! async fn connect() -> impl Delivery<KeygenMsg> {
+//! async fn connect() ->
+//!     impl futures::Stream<Item = Result<Incoming<KeygenMsg>>>
+//!         + futures::Sink<Outgoing<KeygenMsg>, Error = Error>
+//!         + Unpin
+//! {
 //!     // ...
 //! # round_based::_docs::fake_delivery()
 //! }
 //!
 //! let delivery = connect().await;
-//! let party = MpcParty::connected(delivery);
+//! let party = round_based::mpc::connected(delivery);
 //!
 //! # let (i, n) = (1, 3);
 //! let keyshare = keygen(party, i, n).await?;
@@ -142,7 +147,7 @@ pub type CompleteRoundErr<M, E> = <<M as Mpc>::Exec as MpcExecution>::CompleteRo
 /// This desugars into:
 ///
 /// ```rust
-/// use round_based::rounds_router::{ProtocolMsg, RoundMessage};
+/// use round_based::{ProtocolMsg, RoundMsg};
 ///
 /// pub enum Message {
 ///     Round1(Msg1),
@@ -162,7 +167,7 @@ pub type CompleteRoundErr<M, E> = <<M as Mpc>::Exec as MpcExecution>::CompleteRo
 ///         }
 ///     }
 /// }
-/// impl RoundMessage<Msg1> for Message {
+/// impl RoundMsg<Msg1> for Message {
 ///     const ROUND: u16 = 1;
 ///     fn to_protocol_msg(round_msg: Msg1) -> Self {
 ///         Message::Round1(round_msg)
@@ -174,10 +179,10 @@ pub type CompleteRoundErr<M, E> = <<M as Mpc>::Exec as MpcExecution>::CompleteRo
 ///         }
 ///     }
 /// }
-/// impl RoundMessage<Msg2> for Message {
+/// impl RoundMsg<Msg2> for Message {
 ///     const ROUND: u16 = 2;
 ///     fn to_protocol_msg(round_msg: Msg2) -> Self {
-///         Message::Round2(round_message)
+///         Message::Round2(round_msg)
 ///     }
 ///     fn from_protocol_msg(protocol_msg: Self) -> Result<Msg2, Self> {
 ///         match protocol_msg {

@@ -33,7 +33,8 @@
 //!
 //! # type Result<T, E = ()> = std::result::Result<T, E>;
 //! # type Randomness = [u8; 32];
-//! # type Msg = ();
+//! # #[derive(round_based::ProtocolMsg, Clone)]
+//! # enum Msg {}
 //! // Any MPC protocol you want to test
 //! pub async fn protocol_of_random_generation<M>(
 //!     party: M,
@@ -41,7 +42,7 @@
 //!     n: u16
 //! ) -> Result<Randomness>
 //! where
-//!     M: Mpc<ProtocolMsg = Msg>
+//!     M: Mpc<Msg = Msg>
 //! {
 //!     // ...
 //! # todo!()
@@ -257,7 +258,8 @@ impl NextMessageId {
 ///
 /// # type Result<T, E = ()> = std::result::Result<T, E>;
 /// # type Randomness = [u8; 32];
-/// # type Msg = ();
+/// # #[derive(round_based::ProtocolMsg, Clone)]
+/// # enum Msg {}
 /// // Any MPC protocol you want to test
 /// pub async fn protocol_of_random_generation<M>(
 ///     party: M,
@@ -265,7 +267,7 @@ impl NextMessageId {
 ///     n: u16
 /// ) -> Result<Randomness>
 /// where
-///     M: Mpc<ProtocolMsg = Msg>
+///     M: Mpc<Msg = Msg>
 /// {
 ///     // ...
 /// # todo!()
@@ -334,7 +336,8 @@ where
 ///
 /// # type Result<T, E = ()> = std::result::Result<T, E>;
 /// # type Randomness = [u8; 32];
-/// # type Msg = ();
+/// # #[derive(round_based::ProtocolMsg, Clone)]
+/// # enum Msg {}
 /// // Any MPC protocol you want to test
 /// pub async fn protocol_of_random_generation<M>(
 ///     rng: impl rand::RngCore,
@@ -343,7 +346,7 @@ where
 ///     n: u16
 /// ) -> Result<Randomness>
 /// where
-///     M: Mpc<ProtocolMsg = Msg>
+///     M: Mpc<Msg = Msg>
 /// {
 ///     // ...
 /// # todo!()

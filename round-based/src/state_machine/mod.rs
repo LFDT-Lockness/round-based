@@ -8,19 +8,19 @@
 //! ## Example
 //! ```rust,no_run
 //! # fn main() -> anyhow::Result<()> {
-//! use round_based::{Mpc, PartyIndex};
 //! use anyhow::{Result, Error, Context as _};
 //!
 //! # type Randomness = [u8; 32];
-//! # type Msg = ();
+//! # #[derive(round_based::ProtocolMsg, Clone)]
+//! # enum Msg {}
 //! // Any MPC protocol
 //! pub async fn protocol_of_random_generation<M>(
 //!     party: M,
-//!     i: PartyIndex,
+//!     i: u16,
 //!     n: u16
 //! ) -> Result<Randomness>
 //! where
-//!     M: Mpc<ProtocolMsg = Msg>
+//!     M: round_based::Mpc<Msg = Msg>
 //! {
 //!     // ...
 //! # todo!()
