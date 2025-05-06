@@ -22,7 +22,7 @@ mod simple_store;
 /// [`.output()`]: Self::output
 ///
 /// ## Example
-/// [`RoundInput`](super::simple_store::RoundInput) is an simple messages store. Refer to its docs to see usage examples.
+/// [`RoundInput`] is an simple messages store. Refer to its docs to see usage examples.
 pub trait RoundStore: Sized + 'static {
     /// Message type
     type Msg;

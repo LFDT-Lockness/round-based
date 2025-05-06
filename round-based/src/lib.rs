@@ -18,7 +18,7 @@
 //! ## Networking
 //!
 //! In order to run an MPC protocol, transport layer needs to be defined. All you have to do is to
-//! implement [`Delivery`] trait which is basically a stream and a sink for receiving and sending messages.
+//! provide a channel which implements a stream and a sink for receiving and sending messages.
 //!
 //! Message delivery should meet certain criterias that differ from protocol to protocol (refer to
 //! the documentation of the protocol you're using), but usually they are:
@@ -41,7 +41,7 @@
 //! * `state-machine` provides ability to carry out the protocol, defined as async function, via Sync
 //!   API, see [`state_machine`] module
 //! * `derive` is needed to use [`ProtocolMsg`](macro@ProtocolMsg) proc macro
-//! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](runtime)
+//! * `runtime-tokio` enables [tokio]-specific implementation of [async runtime](mpc::runtime)
 //!
 //! ## Join us in Discord!
 //! Feel free to reach out to us [in Discord](https://discordapp.com/channels/905194001349627914/1285268686147424388)!
@@ -83,7 +83,7 @@ pub use self::mpc::{Mpc, MpcExecution, ProtocolMsg, RoundMsg};
 #[doc(hidden)]
 pub mod _docs;
 
-/// Derives [`ProtocolMsg`] and [`RoundMessage`] traits
+/// Derives [`ProtocolMsg`] and [`RoundMsg`] traits
 ///
 /// See [`ProtocolMsg`] docs for more details
 #[cfg(feature = "derive")]

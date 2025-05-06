@@ -56,7 +56,7 @@ pub trait Mpc {
     /// Protocol message
     type Msg;
 
-    /// Returned in [`Self::complete`]
+    /// Returned in [`Self::finish`]
     type Exec: MpcExecution<Msg = Self::Msg, SendErr = Self::SendErr>;
     /// Error indicating that sending a message has failed
     type SendErr;

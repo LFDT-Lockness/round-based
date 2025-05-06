@@ -62,7 +62,7 @@ impl<M> crate::Sink<crate::Outgoing<M>> for Delivery<M> {
     }
 }
 
-/// Error returned by [`Outgoings`] sink
+/// Error returned by [`Delivery`]
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
 pub struct DeliveryErr(Reason);

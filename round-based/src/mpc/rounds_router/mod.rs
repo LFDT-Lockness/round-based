@@ -351,7 +351,7 @@ pub mod errors {
 
     /// Router error
     ///
-    /// Refer to [`CompleteRound::Router`] docs
+    /// Refer to [`CompleteRoundError::Router`] docs
     #[derive(Debug, thiserror::Error)]
     #[error(transparent)]
     pub struct RouterError(Reason);

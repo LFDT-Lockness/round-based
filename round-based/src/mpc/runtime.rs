@@ -41,7 +41,7 @@ pub type DefaultRuntime = TokioRuntime;
 pub type DefaultRuntime = UnknownRuntime;
 
 /// Unknown async runtime
-pub mod unknown_runtime {
+mod unknown_runtime {
     /// Unknown async runtime
     ///
     /// Tries to implement runtime features using generic futures code. It's better to use
@@ -56,7 +56,7 @@ pub mod unknown_runtime {
     }
 
     /// Future for the `yield_now` function.
-    pub struct YieldNow(bool);
+    struct YieldNow(bool);
 
     impl core::future::Future for YieldNow {
         type Output = ();
