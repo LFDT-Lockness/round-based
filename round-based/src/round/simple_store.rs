@@ -185,6 +185,17 @@ where
             })
         }
     }
+
+    fn read_any_prop(&self, property: &mut dyn core::any::Any) {
+        if let Some(p) =
+            property.downcast_mut::<Option<crate::round::props::RequiresReliableBroadcast>>()
+        {
+            *p = Some(crate::round::props::RequiresReliableBroadcast(matches!(
+                self.expected_msg_type,
+                MessageType::Broadcast { reliable: true }
+            )));
+        }
+    }
 }
 
 impl<M> RoundMsgs<M> {
