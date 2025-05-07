@@ -80,6 +80,9 @@ pub trait MpcExecution {
     /// Error indicating that sending a message has failed
     type SendErr;
 
+    /// Returned by [`.send_many()`](Self::send_many)
+    type SendMany: SendMany<Exec = Self, Msg = Self::Msg, SendErr = Self::SendErr>;
+
     /// Completes the round
     async fn complete<R>(
         &mut self,
@@ -90,9 +93,15 @@ pub trait MpcExecution {
         Self::Msg: RoundMsg<R::Msg>;
 
     /// Sends a message
+    ///
+    /// This method awaits until the message is sent, which might be not the best method to use if you
+    /// need to send many messages at once. If it's the case, prefer using [`.send_many()`](Self::send_many).
     async fn send(&mut self, msg: Outgoing<Self::Msg>) -> Result<(), Self::SendErr>;
 
     /// Sends a p2p message to another party
+    ///
+    /// Note: when you send many messages at once (it's most likely the case when you send a p2p message), this method
+    /// is not efficient, prefer using [`.send_many()`](Self::send_many).
     async fn send_p2p(
         &mut self,
         recipient: PartyIndex,
@@ -123,8 +132,73 @@ pub trait MpcExecution {
         self.send(Outgoing::reliable_broadcast(msg)).await
     }
 
+    /// Creates a buffer of outgoing messages so they can be sent all at once
+    ///
+    /// When you have many messages that you want to send at once, using [`.send()`](Self::send) is not efficient,
+    /// as it will accumulate message delivery cost. Use this method to optimize sending many messages at once.
+    fn send_many(self) -> Self::SendMany;
+
     /// Yields execution
     async fn yield_now(&self);
+}
+
+/// Buffer, optimized for sending many messages at once
+pub trait SendMany {
+    /// MPC executor, returned after successful [`.flush()`](Self::flush)
+    type Exec: MpcExecution<Msg = Self::Msg, SendErr = Self::SendErr>;
+    /// Protocol message
+    type Msg;
+    /// Error indicating that sending a message has failed
+    type SendErr;
+
+    /// Adds a message to the sending queue
+    ///
+    /// Similar to [`MpcExecution::send`], but possibly buffers a message until [`.flush()`](Self::flush) is
+    /// called.
+    ///
+    /// Message may be sent within the call (e.g. if internal buffer is full), but no sending is guaranteed
+    /// until [`.flush()`](Self::flush) is called.
+    async fn send(&mut self, msg: Outgoing<Self::Msg>) -> Result<(), Self::SendErr>;
+
+    /// Adds a p2p message to the sending queue
+    ///
+    /// Similar to [`MpcExecution::send_p2p`], but possibly buffers a message until [`.flush()`](Self::flush) is
+    /// called.
+    ///
+    /// Message may be sent within the call (e.g. if internal buffer is full), but no sending is guaranteed
+    /// until [`.flush()`](Self::flush) is called.
+    async fn send_p2p(
+        &mut self,
+        recipient: PartyIndex,
+        msg: Self::Msg,
+    ) -> Result<(), Self::SendErr> {
+        self.send(Outgoing::p2p(recipient, msg)).await
+    }
+
+    /// Adds a broadcast message to the sending queue
+    ///
+    /// Similar to [`MpcExecution::send_to_all`], but possibly buffers a message until [`.flush()`](Self::flush) is
+    /// called.
+    ///
+    /// Message may be sent within the call (e.g. if internal buffer is full), but no sending is guaranteed
+    /// until [`.flush()`](Self::flush) is called.
+    async fn send_to_all(&mut self, msg: Self::Msg) -> Result<(), Self::SendErr> {
+        self.send(Outgoing::all_parties(msg)).await
+    }
+
+    /// Adds a reliable broadcast message to the sending queue
+    ///
+    /// Similar to [`MpcExecution::reliably_broadcast`], but possibly buffers a message until [`.flush()`](Self::flush) is
+    /// called.
+    ///
+    /// Message may be sent within the call (e.g. if internal buffer is full), but no sending is guaranteed
+    /// until [`.flush()`](Self::flush) is called.
+    async fn reliably_broadcast(&mut self, msg: Self::Msg) -> Result<(), Self::SendErr> {
+        self.send(Outgoing::reliable_broadcast(msg)).await
+    }
+
+    /// Flushes internal buffer by sending all messages in the queue
+    async fn flush(self) -> Result<Self::Exec, Self::SendErr>;
 }
 
 /// Alias to `<<M as Mpc>::Exec as MpcExecution>::CompleteRoundErr<E>`

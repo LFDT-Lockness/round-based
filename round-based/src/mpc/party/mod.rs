@@ -104,12 +104,10 @@ where
     AsyncR: runtime::AsyncRuntime,
 {
     type Round<R> = router::Round<R>;
-
     type Msg = M;
-
     type CompleteRoundErr<E> = CompleteRoundError<E, IoErr>;
-
     type SendErr = IoErr;
+    type SendMany = SendMany<M, D, AsyncR>;
 
     async fn complete<R>(
         &mut self,
@@ -147,8 +145,38 @@ where
         self.io.send(msg).await
     }
 
+    fn send_many(self) -> Self::SendMany {
+        SendMany { party: self }
+    }
+
     async fn yield_now(&self) {
         self.runtime.yield_now().await
+    }
+}
+
+/// Returned by [`MpcParty::send_many()`]
+pub struct SendMany<M, D, R> {
+    party: MpcParty<M, D, R, true>,
+}
+
+impl<M, D, E, AsyncR> super::SendMany for SendMany<M, D, AsyncR>
+where
+    M: ProtocolMsg + 'static,
+    D: Stream<Item = Result<Incoming<M>, E>> + Unpin,
+    D: Sink<Outgoing<M>, Error = E> + Unpin,
+    AsyncR: runtime::AsyncRuntime,
+{
+    type Exec = MpcParty<M, D, AsyncR, true>;
+    type Msg = <MpcParty<M, D, AsyncR> as Mpc>::Msg;
+    type SendErr = <MpcParty<M, D, AsyncR> as Mpc>::SendErr;
+
+    async fn send(&mut self, msg: Outgoing<Self::Msg>) -> Result<(), Self::SendErr> {
+        self.party.io.feed(msg).await
+    }
+
+    async fn flush(mut self) -> Result<Self::Exec, Self::SendErr> {
+        self.party.io.flush().await?;
+        Ok(self.party)
     }
 }
 
