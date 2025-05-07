@@ -18,7 +18,7 @@ multiparty protocols (e.g. threshold signing, random beacons, etc.).
 ## Networking
 
 In order to run an MPC protocol, transport layer needs to be defined. All you have to do is to
-implement `Delivery` trait which is basically a stream and a sink for receiving and sending messages.
+provide a channel which implements a stream and a sink for receiving and sending messages.
 
 Message delivery should meet certain criterias that differ from protocol to protocol (refer to
 the documentation of the protocol you're using), but usually they are:
@@ -39,7 +39,7 @@ the documentation of the protocol you're using), but usually they are:
   * `sim-async` enables protocol execution simulation with tokio runtime, see `sim::async_env`
     module
 * `state-machine` provides ability to carry out the protocol, defined as async function, via Sync
-   API, see `state_machine` module
+  API, see `state_machine` module
 * `derive` is needed to use `ProtocolMsg` proc macro
 * `runtime-tokio` enables tokio-specific implementation of async runtime
 

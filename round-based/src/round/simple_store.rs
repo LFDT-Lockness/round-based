@@ -109,16 +109,18 @@ impl<M> RoundInput<M> {
     }
 
     fn is_expected_type_of_msg(&self, actual_msg_type: MessageType) -> bool {
-        // self.expected_msg_type == actual_msg_type
-        match (self.expected_msg_type, actual_msg_type) {
+        matches!(
+            (self.expected_msg_type, actual_msg_type),
             (MessageType::P2P, MessageType::P2P)
-            | (MessageType::Broadcast { reliable: false }, MessageType::Broadcast { .. })
-            | (
-                MessageType::Broadcast { reliable: true },
-                MessageType::Broadcast { reliable: true },
-            ) => true,
-            _ => false,
-        }
+                | (
+                    MessageType::Broadcast { reliable: false },
+                    MessageType::Broadcast { .. }
+                )
+                | (
+                    MessageType::Broadcast { reliable: true },
+                    MessageType::Broadcast { reliable: true },
+                )
+        )
     }
 }
 
