@@ -24,13 +24,13 @@ use super::RoundStore;
 /// input.add_message(Incoming{
 ///     id: 0,
 ///     sender: 0,
-///     msg_type: MessageType::Broadcast,
+///     msg_type: MessageType::Broadcast { reliable: false },
 ///     msg: "first party message",
 /// })?;
 /// input.add_message(Incoming{
 ///     id: 1,
 ///     sender: 2,
-///     msg_type: MessageType::Broadcast,
+///     msg_type: MessageType::Broadcast { reliable: false },
 ///     msg: "third party message",
 /// })?;
 /// assert!(!input.wants_more());
@@ -314,17 +314,23 @@ pub enum RoundInputError {
     },
 }
 
-/// Round messages store for p2p round
+/// p2p round
 ///
 /// Alias to [`RoundInput::p2p`]
 pub fn p2p<M>(i: u16, n: u16) -> RoundInput<M> {
     RoundInput::p2p(i, n)
 }
-/// Round messages store for broadcast round
+/// Broadcast round
 ///
 /// Alias to [`RoundInput::broadcast`]
 pub fn broadcast<M>(i: u16, n: u16) -> RoundInput<M> {
     RoundInput::broadcast(i, n)
+}
+/// Reliable broadcast round
+///
+/// Alias to [`RoundInput::broadcast`]
+pub fn reliable_broadcast<M>(i: u16, n: u16) -> RoundInput<M> {
+    RoundInput::reliable_broadcast(i, n)
 }
 
 #[cfg(test)]

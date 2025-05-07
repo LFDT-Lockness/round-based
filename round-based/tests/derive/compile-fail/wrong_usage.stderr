@@ -1,53 +1,53 @@
-error: named variants are not allowed in ProtocolMessage
+error: named variants are not allowed in ProtocolMsg
  --> tests/derive/compile-fail/wrong_usage.rs:9:5
   |
 9 |     VariantB { n: u32 },
   |     ^^^^^^^^
 
-error: this variant must contain exactly one field to be valid ProtocolMessage
+error: this variant must contain exactly one field to be valid ProtocolMsg
   --> tests/derive/compile-fail/wrong_usage.rs:11:5
    |
 11 |     VariantC(u32, String),
    |     ^^^^^^^^
 
-error: this variant must contain exactly one field to be valid ProtocolMessage
+error: this variant must contain exactly one field to be valid ProtocolMsg
   --> tests/derive/compile-fail/wrong_usage.rs:13:5
    |
 13 |     VariantD(),
    |     ^^^^^^^^
 
-error: unit variants are not allowed in ProtocolMessage
+error: unit variants are not allowed in ProtocolMsg
   --> tests/derive/compile-fail/wrong_usage.rs:15:5
    |
 15 |     VariantE,
    |     ^^^^^^^^
 
-error: only enum may implement ProtocolMessage
+error: only enum may implement ProtocolMsg
   --> tests/derive/compile-fail/wrong_usage.rs:20:1
    |
 20 | struct Msg2 {
    | ^^^^^^
 
-error: only enum may implement ProtocolMessage
+error: only enum may implement ProtocolMsg
   --> tests/derive/compile-fail/wrong_usage.rs:26:1
    |
 26 | union Msg3 {
    | ^^^^^
 
-error: #[protocol_message] attribute appears more than once
+error: #[protocol_msg] attribute appears more than once
   --> tests/derive/compile-fail/wrong_usage.rs:33:3
    |
-33 | #[protocol_message(root = two)]
-   |   ^^^^^^^^^^^^^^^^
+33 | #[protocol_msg(root = two)]
+   |   ^^^^^^^^^^^^
 
 error: unexpected token
-  --> tests/derive/compile-fail/wrong_usage.rs:41:30
+  --> tests/derive/compile-fail/wrong_usage.rs:41:26
    |
-41 | #[protocol_message(root = one, blah blah)]
-   |                              ^
+41 | #[protocol_msg(root = one, blah blah)]
+   |                          ^
 
 error: unexpected end of input, expected `root`
-  --> tests/derive/compile-fail/wrong_usage.rs:49:20
+  --> tests/derive/compile-fail/wrong_usage.rs:49:16
    |
-49 | #[protocol_message()]
-   |                    ^
+49 | #[protocol_msg()]
+   |                ^

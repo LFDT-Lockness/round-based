@@ -71,7 +71,7 @@ async fn random_generation_completes() {
 async fn protocol_terminates_with_error_if_party_broadcasts_msg_unreliably_at_round1() {
     let output = run_protocol([Ok::<_, Infallible>(Incoming {
         id: 0,
-        sender: 1,
+        sender: 2,
         msg_type: MessageType::Broadcast { reliable: false },
         msg: Msg::CommitMsg(CommitMsg {
             commitment: PARTY1_COMMITMENT.into(),
@@ -81,7 +81,13 @@ async fn protocol_terminates_with_error_if_party_broadcasts_msg_unreliably_at_ro
 
     assert_matches!(
         output,
-        Err(Error::Round1Receive(CompleteRoundError::ProcessMsg(_)))
+        Err(Error::Round1Receive(CompleteRoundError::ProcessMsg(
+            round_based::round::RoundInputError::MismatchedMessageType {
+                msg_id: 0,
+                expected: round_based::MessageType::Broadcast { reliable: true },
+                actual: round_based::MessageType::Broadcast { reliable: false }
+            }
+        )))
     )
 }
 
@@ -109,7 +115,12 @@ async fn protocol_terminates_with_error_if_party_tries_to_overwrite_message_at_r
 
     assert_matches!(
         output,
-        Err(Error::Round1Receive(CompleteRoundError::ProcessMsg(_)))
+        Err(Error::Round1Receive(CompleteRoundError::ProcessMsg(
+            round_based::round::RoundInputError::AttemptToOverwriteReceivedMsg {
+                msgs_ids: [0, 1],
+                sender: 1
+            }
+        )))
     )
 }
 
@@ -153,7 +164,12 @@ async fn protocol_terminates_with_error_if_party_tries_to_overwrite_message_at_r
 
     assert_matches!(
         output,
-        Err(Error::Round2Receive(CompleteRoundError::ProcessMsg(_)))
+        Err(Error::Round2Receive(CompleteRoundError::ProcessMsg(
+            round_based::round::RoundInputError::AttemptToOverwriteReceivedMsg {
+                msgs_ids: [2, 3],
+                sender: 1
+            }
+        )))
     )
 }
 
@@ -171,7 +187,13 @@ async fn protocol_terminates_if_received_message_from_unknown_sender_at_round1()
 
     assert_matches!(
         output,
-        Err(Error::Round1Receive(CompleteRoundError::ProcessMsg(_)))
+        Err(Error::Round1Receive(CompleteRoundError::ProcessMsg(
+            round_based::round::RoundInputError::SenderIndexOutOfRange {
+                msg_id: 0,
+                sender: 3,
+                n: 3
+            }
+        )))
     )
 }
 
@@ -307,7 +329,10 @@ async fn protocol_terminates_with_error_if_io_error_happens_at_round2() {
     ])
     .await;
 
-    assert_matches!(output, Err(Error::Round2Receive(CompleteRoundError::Io(_))));
+    assert_matches!(
+        output,
+        Err(Error::Round2Receive(CompleteRoundError::Io(DummyError)))
+    );
 }
 
 #[tokio::test]
@@ -349,7 +374,10 @@ async fn protocol_terminates_with_error_if_io_error_happens_at_round1() {
     ])
     .await;
 
-    assert_matches!(output, Err(Error::Round1Receive(CompleteRoundError::Io(_))));
+    assert_matches!(
+        output,
+        Err(Error::Round1Receive(CompleteRoundError::Io(DummyError)))
+    );
 }
 
 #[tokio::test]

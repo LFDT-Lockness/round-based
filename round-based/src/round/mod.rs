@@ -4,7 +4,9 @@ use core::any::Any;
 
 use crate::Incoming;
 
-pub use self::simple_store::{broadcast, p2p, RoundInput, RoundInputError, RoundMsgs};
+pub use self::simple_store::{
+    broadcast, p2p, reliable_broadcast, RoundInput, RoundInputError, RoundMsgs,
+};
 
 mod simple_store;
 
@@ -53,11 +55,47 @@ pub trait RoundStore: Sized + 'static {
     /// uses this function internally.
     ///
     /// When implementing `RoundStore` trait, if you wish to expose no extra information, leave the default
-    /// implementation of this method. If you do wish to expose certain properties that will be accessible
+    /// implementation of this method. If you do want to expose certain properties that will be accessible
     /// through [`RoundStoreExt::read_prop`], follow this example:
     ///
     /// ```rust
-    /// todo!()
+    /// pub struct MyStore { /* ... */ }
+    ///
+    /// #[derive(Debug, PartialEq, Eq)]
+    /// pub struct SomePropertyWeWantToExpose { value: u64 }
+    /// #[derive(Debug, PartialEq, Eq)]
+    /// pub struct AnotherProperty(String);
+    ///
+    /// # type Msg = ();
+    /// impl round_based::round::RoundStore for MyStore {
+    /// #    type Msg = Msg;
+    /// #    type Output = Vec<Msg>;
+    /// #    type Error = core::convert::Infallible;
+    /// #    fn add_message(&mut self, msg: round_based::Incoming<Self::Msg>) -> Result<(), Self::Error> { unimplemented!() }
+    /// #    fn wants_more(&self) -> bool { unimplemented!() }
+    /// #    fn output(self) -> Result<Self::Output, Self> { unimplemented!() }
+    ///     // ...
+    ///
+    ///     fn read_any_prop(&self, property: &mut dyn core::any::Any) {
+    ///         if let Some(p) = property.downcast_mut::<Option<SomePropertyWeWantToExpose>>() {
+    ///             *p = Some(SomePropertyWeWantToExpose { value: 42 })
+    ///         } else if let Some(p) = property.downcast_mut::<Option<AnotherProperty>>() {
+    ///             *p = Some(AnotherProperty("here we return a string".to_owned()))
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// // Which then can be accessed via `.read_prop()` method:
+    /// use round_based::round::RoundStoreExt;
+    /// let store = MyStore { /* ... */ };
+    /// assert_eq!(
+    ///     store.read_prop::<SomePropertyWeWantToExpose>(),
+    ///     Some(SomePropertyWeWantToExpose { value: 42 }),
+    /// );
+    /// assert_eq!(
+    ///     store.read_prop::<AnotherProperty>(),
+    ///     Some(AnotherProperty("here we return a string".to_owned())),
+    /// );
     /// ```
     fn read_any_prop(&self, property: &mut dyn Any) {
         let _ = property;

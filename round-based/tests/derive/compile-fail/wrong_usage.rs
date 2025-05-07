@@ -29,8 +29,8 @@ union Msg3 {
 
 // protocol_message is repeated twice
 #[derive(ProtocolMsg)]
-#[protocol_message(root = one)]
-#[protocol_message(root = two)]
+#[protocol_msg(root = one)]
+#[protocol_msg(root = two)]
 enum Msg4 {
     One(u32),
     Two(u16),
@@ -38,15 +38,15 @@ enum Msg4 {
 
 // ", blah blah" is not permitted input
 #[derive(ProtocolMsg)]
-#[protocol_message(root = one, blah blah)]
+#[protocol_msg(root = one, blah blah)]
 enum Msg5 {
     One(u32),
     Two(u16),
 }
 
-// `protocol_message` must not be empty
+// `protocol_msh` must not be empty
 #[derive(ProtocolMsg)]
-#[protocol_message()]
+#[protocol_msg()]
 enum Msg6 {
     One(u32),
     Two(u16),

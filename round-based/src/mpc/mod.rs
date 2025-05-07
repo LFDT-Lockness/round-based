@@ -104,7 +104,7 @@ pub trait MpcExecution {
     /// Sends a message that will be received by all parties
     ///
     /// Message will be broadcasted, but not reliably. If you need a reliable broadcast, use
-    /// [`reliably_broadcast`] method.
+    /// [`MpcExecution::reliably_broadcast`] method.
     async fn send_to_all(&mut self, msg: Self::Msg) -> Result<(), Self::SendErr> {
         self.send(Outgoing::all_parties(msg)).await
     }

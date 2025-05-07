@@ -8,7 +8,7 @@ enum Msg<G> {
     VariantD(MyStruct<G>),
 }
 #[derive(ProtocolMsg)]
-#[protocol_message(root = round_based)]
+#[protocol_msg(root = round_based)]
 enum Msg2<G> {
     VariantA(u16),
     VariantB(String),

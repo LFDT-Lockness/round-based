@@ -58,7 +58,7 @@ where
     R: rand_core::RngCore,
 {
     // Define rounds
-    let round1 = mpc.add_round(round_based::round::broadcast::<CommitMsg>(i, n));
+    let round1 = mpc.add_round(round_based::round::reliable_broadcast::<CommitMsg>(i, n));
     let round2 = mpc.add_round(round_based::round::broadcast::<DecommitMsg>(i, n));
     let mut mpc = mpc.finish();
 
