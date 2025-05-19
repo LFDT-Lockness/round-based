@@ -113,7 +113,6 @@ where
     ) -> Result<R::Output, errors::CompleteRoundError<R::Error, Infallible>>
     where
         R: RoundStore,
-        M: RoundMsg<R::Msg>,
     {
         match round.take_output() {
             Ok(Ok(any)) => Ok(*any

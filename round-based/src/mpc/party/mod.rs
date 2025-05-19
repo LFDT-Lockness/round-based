@@ -125,13 +125,9 @@ where
 
         // Round is not completed - we need more messages
         loop {
-            let incoming = self
-                .io
-                .next()
+            self.receive_and_process_one_message()
                 .await
-                .ok_or(CompleteRoundError::UnexpectedEof)?
-                .map_err(CompleteRoundError::Io)?;
-            self.router.received_msg(incoming)?;
+                .map_err(|e| e.map_process_err(|e| match e {}))?;
 
             // Check if round was just completed
             round = match self.router.complete_round(round) {
@@ -139,6 +135,19 @@ where
                 Err(w) => w,
             };
         }
+    }
+
+    async fn receive_and_process_one_message(
+        &mut self,
+    ) -> Result<(), Self::CompleteRoundErr<core::convert::Infallible>> {
+        let incoming = self
+            .io
+            .next()
+            .await
+            .ok_or(CompleteRoundError::UnexpectedEof)?
+            .map_err(CompleteRoundError::Io)?;
+        self.router.received_msg(incoming)?;
+        Ok(())
     }
 
     async fn send(&mut self, msg: Outgoing<Self::Msg>) -> Result<(), Self::SendErr> {

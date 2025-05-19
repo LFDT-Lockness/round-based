@@ -28,6 +28,10 @@ tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 
 pin-project-lite = "0.2"
 
+# echo broadcast
+digest = { version = "0.10", default-features = false, optional = true }
+udigest = { version = "0.2", default-features = false, features = ["alloc", "digest", "inline-struct"], optional = true }
+
 [dev-dependencies]
 trybuild = "1"
 matches = "0.1"
@@ -47,6 +51,8 @@ sim = ["state-machine"]
 sim-async = ["sim", "tokio/sync", "tokio-stream", "futures-util/alloc"]
 derive = ["round-based-derive"]
 runtime-tokio = ["tokio"]
+
+echo-broadcast = ["dep:digest", "dep:udigest"]
 
 [[test]]
 name = "derive"

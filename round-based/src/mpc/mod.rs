@@ -35,6 +35,8 @@
 //! # Ok(()) }
 //! ```
 
+use core::convert::Infallible;
+
 use crate::{round::RoundStore, Outgoing, PartyIndex};
 
 pub mod party;
@@ -84,6 +86,8 @@ pub trait MpcExecution {
     type SendMany: SendMany<Exec = Self, Msg = Self::Msg, SendErr = Self::SendErr>;
 
     /// Completes the round
+    ///
+    /// Waits until all messages in the round `R` are received, returns the received messages.
     async fn complete<R>(
         &mut self,
         round: Self::Round<R>,
@@ -91,6 +95,14 @@ pub trait MpcExecution {
     where
         R: RoundStore,
         Self::Msg: RoundMsg<R::Msg>;
+
+    /// Instructs the MPC driver to receive exactly one message and route it to its appropriate round store
+    ///
+    /// This is a low-level function, normally you don't need to use it. Use [`.complete()`](Self::complete)
+    /// to receive messages until round is completed.
+    async fn receive_and_process_one_message(
+        &mut self,
+    ) -> Result<(), Self::CompleteRoundErr<Infallible>>;
 
     /// Sends a message
     ///
