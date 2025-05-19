@@ -10,6 +10,16 @@ pub use self::simple_store::{
 
 mod simple_store;
 
+/// Common information about a round
+pub trait RoundInfo: Sized + 'static {
+    /// Message type
+    type Msg;
+    /// Store output (e.g. `Vec<_>` of received messages)
+    type Output;
+    /// Store error
+    type Error: core::error::Error;
+}
+
 /// Stores messages received at particular round
 ///
 /// In MPC protocol, party at every round usually needs to receive up to `n` messages. `RoundsStore`
@@ -27,14 +37,7 @@ mod simple_store;
 ///
 /// ## Example
 /// [`RoundInput`] is an simple messages store. Refer to its docs to see usage examples.
-pub trait RoundStore: Sized + 'static {
-    /// Message type
-    type Msg;
-    /// Store output (e.g. `Vec<_>` of received messages)
-    type Output;
-    /// Store error
-    type Error: core::error::Error;
-
+pub trait RoundStore: RoundInfo {
     /// Adds received message to the store
     ///
     /// Returns error if message cannot be processed. Usually it means that sender behaves maliciously.
@@ -136,15 +139,21 @@ pub struct WithProp<P, S> {
     store: S,
 }
 
+impl<P, S> RoundInfo for WithProp<P, S>
+where
+    S: RoundInfo,
+    P: 'static,
+{
+    type Msg = S::Msg;
+    type Output = S::Output;
+    type Error = S::Error;
+}
+
 impl<P, S> RoundStore for WithProp<P, S>
 where
     S: RoundStore,
     P: Clone + 'static,
 {
-    type Msg = S::Msg;
-    type Output = S::Output;
-    type Error = S::Error;
-
     #[inline(always)]
     fn add_message(&mut self, msg: Incoming<Self::Msg>) -> Result<(), Self::Error> {
         self.store.add_message(msg)

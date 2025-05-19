@@ -5,7 +5,7 @@ use core::iter;
 
 use crate::{Incoming, MessageType, MsgId, PartyIndex};
 
-use super::RoundStore;
+use super::{RoundInfo, RoundStore};
 
 /// Simple implementation of [`RoundStore`] that waits for all parties to send a message
 ///
@@ -124,14 +124,18 @@ impl<M> RoundInput<M> {
     }
 }
 
-impl<M> RoundStore for RoundInput<M>
+impl<M> RoundInfo for RoundInput<M>
 where
     M: 'static,
 {
     type Msg = M;
     type Output = RoundMsgs<M>;
     type Error = RoundInputError;
-
+}
+impl<M> RoundStore for RoundInput<M>
+where
+    M: 'static,
+{
     fn add_message(&mut self, msg: Incoming<Self::Msg>) -> Result<(), Self::Error> {
         if !self.is_expected_type_of_msg(msg.msg_type) {
             return Err(RoundInputError::MismatchedMessageType {

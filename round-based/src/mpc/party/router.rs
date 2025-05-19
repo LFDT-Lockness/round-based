@@ -416,11 +416,12 @@ mod tests {
     }
     struct Msg1;
 
-    impl super::RoundStore for Store {
+    impl crate::round::RoundInfo for Store {
         type Msg = Msg1;
         type Output = ();
         type Error = core::convert::Infallible;
-
+    }
+    impl crate::round::RoundStore for Store {
         fn add_message(&mut self, _msg: crate::Incoming<Self::Msg>) -> Result<(), Self::Error> {
             Ok(())
         }
