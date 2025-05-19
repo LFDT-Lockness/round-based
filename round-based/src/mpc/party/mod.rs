@@ -2,7 +2,10 @@
 
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
 
-use crate::{round::RoundStore, Incoming, Outgoing};
+use crate::{
+    round::{RoundInfo, RoundStore},
+    Incoming, Outgoing,
+};
 
 use super::{Mpc, MpcExecution, ProtocolMsg, RoundMsg};
 
@@ -103,7 +106,7 @@ where
     D: Sink<Outgoing<M>, Error = IoErr> + Unpin,
     AsyncR: runtime::AsyncRuntime,
 {
-    type Round<R> = router::Round<R>;
+    type Round<R: RoundInfo> = router::Round<R>;
     type Msg = M;
     type CompleteRoundErr<E> = CompleteRoundError<E, IoErr>;
     type SendErr = IoErr;
@@ -114,7 +117,7 @@ where
         mut round: Self::Round<R>,
     ) -> Result<R::Output, Self::CompleteRoundErr<R::Error>>
     where
-        R: RoundStore,
+        R: RoundInfo,
         Self::Msg: RoundMsg<R::Msg>,
     {
         // Check if round is already completed

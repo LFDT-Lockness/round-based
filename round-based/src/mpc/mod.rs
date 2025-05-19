@@ -37,7 +37,10 @@
 
 use core::convert::Infallible;
 
-use crate::{round::RoundStore, Outgoing, PartyIndex};
+use crate::{
+    round::{RoundInfo, RoundStore},
+    Outgoing, PartyIndex,
+};
 
 pub mod party;
 
@@ -72,7 +75,7 @@ pub trait MpcExecution {
     /// Witness that round was registered
     ///
     /// It is used to retrieve messages in [`MpcExecution::complete`].
-    type Round<R>;
+    type Round<R: RoundInfo>;
 
     /// Protocol message
     type Msg;
@@ -93,7 +96,7 @@ pub trait MpcExecution {
         round: Self::Round<R>,
     ) -> Result<R::Output, Self::CompleteRoundErr<R::Error>>
     where
-        R: RoundStore,
+        R: RoundInfo,
         Self::Msg: RoundMsg<R::Msg>;
 
     /// Instructs the MPC driver to receive exactly one message and route it to its appropriate round store

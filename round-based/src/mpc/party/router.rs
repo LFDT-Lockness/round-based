@@ -9,7 +9,10 @@ use core::{any::Any, convert::Infallible, mem};
 use phantom_type::PhantomType;
 use tracing::{error, trace_span, warn};
 
-use crate::{round::RoundStore, Incoming, ProtocolMsg, RoundMsg};
+use crate::{
+    round::{RoundInfo, RoundStore},
+    Incoming, ProtocolMsg, RoundMsg,
+};
 
 /// Routes received messages between protocol rounds
 pub struct RoundsRouter<M> {
@@ -84,7 +87,7 @@ where
         round: Round<R>,
     ) -> Result<Result<R::Output, errors::CompleteRoundError<R::Error, Infallible>>, Round<R>>
     where
-        R: RoundStore,
+        R: RoundInfo,
         M: RoundMsg<R::Msg>,
     {
         let message_round = match self.rounds.get_mut(&M::ROUND) {
@@ -112,7 +115,7 @@ where
         round: &mut Box<dyn ProcessRoundMessage<Msg = M>>,
     ) -> Result<R::Output, errors::CompleteRoundError<R::Error, Infallible>>
     where
-        R: RoundStore,
+        R: RoundInfo,
     {
         match round.take_output() {
             Ok(Ok(any)) => Ok(*any
