@@ -67,8 +67,8 @@ mod false_positives {
 }
 
 mod delivery;
-// #[cfg(feature = "echo-broadcast")]
-// pub mod echo_broadcast;
+#[cfg(feature = "echo-broadcast")]
+pub mod echo_broadcast;
 pub mod mpc;
 pub mod round;
 #[cfg(feature = "state-machine")]

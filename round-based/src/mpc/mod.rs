@@ -35,8 +35,6 @@
 //! # Ok(()) }
 //! ```
 
-use core::convert::Infallible;
-
 use crate::{
     round::{RoundInfo, RoundStore},
     Outgoing, PartyIndex,
@@ -98,14 +96,6 @@ pub trait MpcExecution {
     where
         R: RoundInfo,
         Self::Msg: RoundMsg<R::Msg>;
-
-    /// Instructs the MPC driver to receive exactly one message and route it to its appropriate round store
-    ///
-    /// This is a low-level function, normally you don't need to use it. Use [`.complete()`](Self::complete)
-    /// to receive messages until round is completed.
-    async fn receive_and_process_one_message(
-        &mut self,
-    ) -> Result<(), Self::CompleteRoundErr<Infallible>>;
 
     /// Sends a message
     ///

@@ -10,17 +10,13 @@ pub(super) enum Reason {
     )]
     StoreReceivedTwoMsgsFromSameParty,
     #[error("received a msg from principal protocol when round is over")]
-    ReceivedPrincipalMsgWhenRoundOver,
-    #[error("received an echo msg when round is over")]
-    ReceivedEchoMsgWhenRoundOver,
+    ReceivedMainMsgWhenRoundOver,
     #[error("unknown sender i={i} (n={n})")]
     UnknownSender { i: u16, n: usize },
     #[error("local party index is out of bounds, probably indicates a bug")]
     OwnIndexOutOfBounds { i: u16, n: usize },
     #[error("principal round is finished, but store doesn't output")]
-    PrincipalRoundFinishedButStoreDoesntOutput,
-    #[error("echo round is finished, but store doesn't output")]
-    EchoRoundFinishedButStoreDoesntOutput,
+    MainRoundFinishedButStoreDoesntOutput,
 
     #[error("handle incoming echo msg")]
     HandleEcho(#[source] crate::round::RoundInputError),
@@ -28,19 +24,28 @@ pub(super) enum Reason {
     #[error("reliability check error: messages were not reliably broadcasted")]
     MismatchedHash,
 
-    #[error("round has already returned output or error")]
-    StateFinished,
     #[error("impossible state (it's a bug)")]
     StateGone,
 
     #[error("main round is in unexpected state (it's a bug)")]
     UnexpectedMainRoundState,
+
+    #[error("clone error msg: RoundMsg implementation is incorrect")]
+    RoundMsgClone,
+
+    #[error(
+        "protocol attempts to send a broadcast msg twice within the same round, it's unsupported"
+    )]
+    SendTwice,
+
+    #[error("cannot convert a sent round msg back from proto msg (it's a bug)")]
+    SentMsgFromProto,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error<E> {
     #[error("error originated in principal protocol")]
-    Principal(#[source] E),
+    Main(#[source] E),
     #[error("echo broadcast")]
     Echo(#[from] EchoError),
 }
@@ -48,5 +53,33 @@ pub enum Error<E> {
 impl<E> From<Reason> for Error<E> {
     fn from(value: Reason) -> Self {
         Error::Echo(value.into())
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error(transparent)]
+pub struct CompleteRoundError<CompleteErr, SendErr>(
+    #[from] CompleteRoundReason<CompleteErr, SendErr>,
+);
+
+#[derive(thiserror::Error, Debug)]
+pub(super) enum CompleteRoundReason<CompleteErr, SendErr> {
+    #[error(transparent)]
+    CompleteRound(CompleteErr),
+    #[error(transparent)]
+    Send(SendErr),
+    #[error(transparent)]
+    Echo(Reason),
+}
+
+impl<A, B> From<Reason> for CompleteRoundError<A, B> {
+    fn from(err: Reason) -> Self {
+        CompleteRoundError(CompleteRoundReason::Echo(err.into()))
+    }
+}
+
+impl<A, B> From<EchoError> for CompleteRoundError<A, B> {
+    fn from(err: EchoError) -> Self {
+        err.0.into()
     }
 }
