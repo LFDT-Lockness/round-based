@@ -27,7 +27,7 @@ pub trait RoundInfo: Sized + 'static {
 /// and should implement extra measures against malicious parties (e.g. prohibit message overwrite).
 ///
 /// ## Flow
-/// `RoundStore` stores received messages. Once enough messages are received, it outputs [`RoundStore::Output`].
+/// `RoundStore` stores received messages. Once enough messages are received, it outputs [`RoundInfo::Output`].
 /// In order to save received messages, [`.add_message(msg)`] is called. Then, [`.wants_more()`] tells whether more
 /// messages are needed to be received. If it returned `false`, then output can be retrieved by calling [`.output()`].
 ///

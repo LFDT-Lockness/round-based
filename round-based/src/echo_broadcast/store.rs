@@ -137,14 +137,12 @@ where
                 received_msgs: self.received_msgs,
                 _hash: PhantomData,
             }),
-            state => {
-                return Err(Self {
-                    params: self.params,
-                    state,
-                    received_msgs: self.received_msgs,
-                    _ph: PhantomData,
-                })
-            }
+            state => Err(Self {
+                params: self.params,
+                state,
+                received_msgs: self.received_msgs,
+                _ph: PhantomData,
+            }),
         }
     }
 }

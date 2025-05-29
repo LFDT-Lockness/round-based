@@ -74,7 +74,7 @@ pub(super) enum CompleteRoundReason<CompleteErr, SendErr> {
 
 impl<A, B> From<Reason> for CompleteRoundError<A, B> {
     fn from(err: Reason) -> Self {
-        CompleteRoundError(CompleteRoundReason::Echo(err.into()))
+        CompleteRoundError(CompleteRoundReason::Echo(err))
     }
 }
 

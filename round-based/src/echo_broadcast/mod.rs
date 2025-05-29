@@ -289,7 +289,7 @@ where
                     .party
                     .complete(echo_round)
                     .await
-                    .map_err(|e| error::CompleteRoundReason::CompleteRound(e))?;
+                    .map_err(error::CompleteRoundReason::CompleteRound)?;
                 // check that everyone sent the same hash
                 let main_output = main_output.with_echo_output(echoes)?;
 
