@@ -70,10 +70,12 @@ pub trait RoundStore: RoundInfo {
     /// pub struct AnotherProperty(String);
     ///
     /// # type Msg = ();
-    /// impl round_based::round::RoundStore for MyStore {
+    /// # impl round_based::round::RoundInfo for MyStore {
     /// #    type Msg = Msg;
     /// #    type Output = Vec<Msg>;
     /// #    type Error = core::convert::Infallible;
+    /// # }
+    /// impl round_based::round::RoundStore for MyStore {
     /// #    fn add_message(&mut self, msg: round_based::Incoming<Self::Msg>) -> Result<(), Self::Error> { unimplemented!() }
     /// #    fn wants_more(&self) -> bool { unimplemented!() }
     /// #    fn output(self) -> Result<Self::Output, Self> { unimplemented!() }
