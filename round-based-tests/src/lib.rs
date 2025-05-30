@@ -58,6 +58,7 @@ impl<S: round_based::state_machine::StateMachine> PartySim<S> {
     }
 }
 
+#[must_use = "you need to make sure the output meets tests expectations"]
 pub struct Expect<T>(pub T);
 
 impl<T: Eq + core::fmt::Debug> Expect<T> {
@@ -71,5 +72,11 @@ impl<T, E: core::fmt::Debug> Expect<Result<T, E>> {
     #[track_caller]
     pub fn unwrap(self) -> Expect<T> {
         Expect(self.0.unwrap())
+    }
+}
+impl<T: core::fmt::Debug, E> Expect<Result<T, E>> {
+    #[track_caller]
+    pub fn unwrap_err(self) -> Expect<E> {
+        Expect(self.0.unwrap_err())
     }
 }

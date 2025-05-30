@@ -1,4 +1,5 @@
 use hex_literal::hex;
+use matches::assert_matches;
 use rand_chacha::rand_core::SeedableRng;
 
 use random_generation_protocol::{protocol_of_random_generation, CommitMsg, DecommitMsg, Msg};
@@ -24,9 +25,10 @@ const PROTOCOL_OUTPUT: [u8; 32] =
 const PARTY_OVERWRITES: [u8; 32] =
     hex!("00aa11bb22cc33dd44ee55ff6677889900aa11bb22cc33dd44ee55ff66778899");
 
-#[tokio::test]
-async fn random_generation_completes() {
+#[test]
+fn random_generation_completes() {
     let mut sim = simulation();
+    // Round 0 - commitment
     sim.sends().expect_eq(&Outgoing {
         recipient: round_based::MessageDestination::AllParties { reliable: false },
         msg: echo::Msg::Main(Msg::CommitMsg(CommitMsg {
@@ -49,6 +51,7 @@ async fn random_generation_completes() {
             commitment: PARTY2_COMMITMENT.into(),
         })),
     });
+    // Round 1 - echo round
     sim.sends().expect_eq(&Outgoing {
         recipient: round_based::MessageDestination::AllParties { reliable: false },
         msg: echo::Msg::Echo {
@@ -74,6 +77,7 @@ async fn random_generation_completes() {
             hash: ECHO_MSG.into(),
         },
     });
+    // Round 2 - decommitment
     sim.sends().expect_eq(&Outgoing {
         recipient: round_based::MessageDestination::AllParties { reliable: false },
         msg: echo::Msg::Main(Msg::DecommitMsg(DecommitMsg {
@@ -98,6 +102,65 @@ async fn random_generation_completes() {
     });
 
     sim.outputs().unwrap().expect_eq(&PROTOCOL_OUTPUT);
+}
+
+#[test]
+fn detects_unreliable_broadcast() {
+    let mut sim = simulation();
+    // Round 0 - commitment
+    sim.sends().expect_eq(&Outgoing {
+        recipient: round_based::MessageDestination::AllParties { reliable: false },
+        msg: echo::Msg::Main(Msg::CommitMsg(CommitMsg {
+            commitment: PARTY0_COMMITMENT.into(),
+        })),
+    });
+    sim.receives(Incoming {
+        id: 0,
+        sender: 1,
+        msg_type: MessageType::Broadcast { reliable: false },
+        msg: echo::Msg::Main(Msg::CommitMsg(CommitMsg {
+            commitment: PARTY1_COMMITMENT.into(),
+        })),
+    });
+    sim.receives(Incoming {
+        id: 1,
+        sender: 2,
+        msg_type: MessageType::Broadcast { reliable: false },
+        msg: echo::Msg::Main(Msg::CommitMsg(CommitMsg {
+            commitment: PARTY2_COMMITMENT.into(),
+        })),
+    });
+    // Round 1 - echo round
+    sim.sends().expect_eq(&Outgoing {
+        recipient: round_based::MessageDestination::AllParties { reliable: false },
+        msg: echo::Msg::Echo {
+            round: 0,
+            hash: ECHO_MSG.into(),
+        },
+    });
+    sim.receives(Incoming {
+        id: 2,
+        sender: 1,
+        msg_type: MessageType::Broadcast { reliable: false },
+        msg: echo::Msg::Echo {
+            round: 0,
+            hash: ECHO_MSG.into(),
+        },
+    });
+    sim.receives(Incoming {
+        id: 3,
+        sender: 2,
+        msg_type: MessageType::Broadcast { reliable: false },
+        msg: echo::Msg::Echo {
+            round: 0,
+            hash: PARTY_OVERWRITES.into(),
+        },
+    });
+
+    assert_matches!(
+        sim.outputs().unwrap_err().0,
+        random_generation_protocol::Error::Round1Receive(_)
+    );
 }
 
 fn simulation() -> round_based_tests::PartySim<
