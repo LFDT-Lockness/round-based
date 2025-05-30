@@ -299,7 +299,7 @@ where
                     .party
                     .complete(round)
                     .await
-                    .map_err(error::CompleteRoundReason::CompleteRound)?;
+                    .map_err(error::CompleteRoundError::CompleteRound)?;
                 Ok(output)
             }
             Inner::WithReliabilityCheck {
@@ -311,7 +311,7 @@ where
                     .party
                     .complete(main_round)
                     .await
-                    .map_err(error::CompleteRoundReason::CompleteRound)?;
+                    .map_err(error::CompleteRoundError::CompleteRound)?;
                 // retrieve a msg that we sent in this round
                 let sent_msg =
                     if let Some(Some(msg)) = self.sent_reliable_msgs.remove(&Self::Msg::ROUND) {
@@ -329,13 +329,13 @@ where
                         hash,
                     })
                     .await
-                    .map_err(error::CompleteRoundReason::Send)?;
+                    .map_err(error::CompleteRoundError::Send)?;
                 // receive echoes from other parties
                 let echoes = self
                     .party
                     .complete(echo_round)
                     .await
-                    .map_err(error::CompleteRoundReason::CompleteRound)?;
+                    .map_err(error::CompleteRoundError::CompleteRound)?;
                 // check that everyone sent the same hash
                 let main_output = main_output.with_echo_output(echoes)?;
 

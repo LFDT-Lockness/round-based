@@ -159,7 +159,8 @@ fn detects_unreliable_broadcast() {
 
     assert_matches!(
         sim.outputs().unwrap_err().0,
-        random_generation_protocol::Error::Round1Receive(_)
+        random_generation_protocol::Error::Round1Receive(echo::CompleteRoundError::Echo(err))
+            if err.reliability_check_failed()
     );
 }
 

@@ -1,6 +1,18 @@
+/// An error in echo-broadcast sub-protocol
+///
+/// It may indicate that reliability check was not successful, or some other error, for instance, that
+/// a round that requires reliable broadcast behaves unexpectedly (e.g. if we received two messages
+/// from the same party and the main round didn't return an error).
 #[derive(thiserror::Error, Debug)]
 #[error(transparent)]
 pub struct EchoError(#[from] Reason);
+
+impl EchoError {
+    /// Indicates that an error was caused by failed reliability check
+    pub fn reliability_check_failed(&self) -> bool {
+        matches!(self.0, Reason::MismatchedHash)
+    }
+}
 
 #[derive(thiserror::Error, Debug)]
 pub(super) enum Reason {
@@ -59,10 +71,13 @@ pub(super) enum Reason {
     SentReliableMsgInNonReliableRound { round: u16 },
 }
 
+/// An error originated either from main protocol or echo-broadcast sub-protocol
 #[derive(thiserror::Error, Debug)]
 pub enum Error<E> {
+    /// Error originated from main protocol
     #[error("error originated in principal protocol")]
     Main(#[source] E),
+    /// Error originated from echo-broadcast sub-protocol
     #[error("echo broadcast")]
     Echo(#[from] EchoError),
 }
@@ -73,25 +88,25 @@ impl<E> From<Reason> for Error<E> {
     }
 }
 
+/// An error returned in [round completion](super::WithEchoBroadcast::complete)
 #[derive(thiserror::Error, Debug)]
-#[error(transparent)]
-pub struct CompleteRoundError<CompleteErr, SendErr>(
-    #[from] CompleteRoundReason<CompleteErr, SendErr>,
-);
-
-#[derive(thiserror::Error, Debug)]
-pub(super) enum CompleteRoundReason<CompleteErr, SendErr> {
+pub enum CompleteRoundError<CompleteErr, SendErr> {
+    /// Error occurred while handling received message(s)
     #[error(transparent)]
     CompleteRound(CompleteErr),
+    /// Error occurred while sending a message to another party
+    ///
+    /// The only message we send during round completion is echo message
     #[error(transparent)]
     Send(SendErr),
+    /// Echo broadcast sub-protocol error
     #[error(transparent)]
-    Echo(Reason),
+    Echo(EchoError),
 }
 
 impl<A, B> From<Reason> for CompleteRoundError<A, B> {
     fn from(err: Reason) -> Self {
-        CompleteRoundError(CompleteRoundReason::Echo(err))
+        CompleteRoundError::Echo(err.into())
     }
 }
 
