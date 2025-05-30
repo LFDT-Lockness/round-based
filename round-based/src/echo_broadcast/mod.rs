@@ -156,13 +156,13 @@ where
 }
 
 /// Wraps an [`Mpc`] engine and provides echo broadcast capabilities
-pub fn wrap<D, M, MainMsg>(party: M, i: u16, n: u16) -> WithReliableBroadcast<D, M, MainMsg>
+pub fn wrap<D, M, MainMsg>(party: M, i: u16, n: u16) -> WithEchoBroadcast<D, M, MainMsg>
 where
     D: Digest,
     M: Mpc<Msg = Msg<D, MainMsg>>,
     MainMsg: udigest::Digestable,
 {
-    WithReliableBroadcast {
+    WithEchoBroadcast {
         party,
         i,
         n,
@@ -172,7 +172,7 @@ where
 }
 
 /// [`Mpc`] engine with echo-broadcast capabilities
-pub struct WithReliableBroadcast<D: Digest, M, Msg> {
+pub struct WithEchoBroadcast<D: Digest, M, Msg> {
     party: M,
     i: u16,
     n: u16,
@@ -180,10 +180,10 @@ pub struct WithReliableBroadcast<D: Digest, M, Msg> {
     _ph: PhantomData<D>,
 }
 
-impl<D: Digest, M, Msg> WithReliableBroadcast<D, M, Msg> {
-    fn map_party<P>(self, f: impl FnOnce(M) -> P) -> WithReliableBroadcast<D, P, Msg> {
+impl<D: Digest, M, Msg> WithEchoBroadcast<D, M, Msg> {
+    fn map_party<P>(self, f: impl FnOnce(M) -> P) -> WithEchoBroadcast<D, P, Msg> {
         let party = f(self.party);
-        WithReliableBroadcast {
+        WithEchoBroadcast {
             party,
             i: self.i,
             n: self.n,
@@ -193,7 +193,7 @@ impl<D: Digest, M, Msg> WithReliableBroadcast<D, M, Msg> {
     }
 }
 
-impl<D, M, MainMsg> Mpc for WithReliableBroadcast<D, M, MainMsg>
+impl<D, M, MainMsg> Mpc for WithEchoBroadcast<D, M, MainMsg>
 where
     D: Digest + 'static,
     M: Mpc<Msg = Msg<D, MainMsg>>,
@@ -201,7 +201,7 @@ where
 {
     type Msg = MainMsg;
 
-    type Exec = WithReliableBroadcast<D, M::Exec, MainMsg>;
+    type Exec = WithEchoBroadcast<D, M::Exec, MainMsg>;
 
     type SendErr = error::Error<M::SendErr>;
 
@@ -237,7 +237,7 @@ where
     }
 }
 
-impl<D, M, MainMsg> WithReliableBroadcast<D, M, MainMsg>
+impl<D, M, MainMsg> WithEchoBroadcast<D, M, MainMsg>
 where
     D: Digest,
     MainMsg: ProtocolMsg + Clone,
@@ -271,7 +271,7 @@ where
     }
 }
 
-impl<D, M, MainMsg> MpcExecution for WithReliableBroadcast<D, M, MainMsg>
+impl<D, M, MainMsg> MpcExecution for WithEchoBroadcast<D, M, MainMsg>
 where
     D: Digest + 'static,
     M: MpcExecution<Msg = Msg<D, MainMsg>>,
@@ -282,7 +282,7 @@ where
     type CompleteRoundErr<E> =
         error::CompleteRoundError<M::CompleteRoundErr<error::Error<E>>, M::SendErr>;
     type SendErr = error::Error<M::SendErr>;
-    type SendMany = WithReliableBroadcast<D, M::SendMany, MainMsg>;
+    type SendMany = WithEchoBroadcast<D, M::SendMany, MainMsg>;
 
     async fn complete<R>(
         &mut self,
@@ -364,7 +364,7 @@ where
 
 /// Round registration witness
 ///
-/// Returned by [`WithReliableBroadcast::add_round()`]
+/// Returned by [`WithEchoBroadcast::add_round()`]
 pub struct Round<M, D, ProtoMsg, R>(Inner<M, D, ProtoMsg, R>)
 where
     M: MpcExecution,
@@ -387,13 +387,13 @@ where
     },
 }
 
-impl<D, M, MainMsg> crate::mpc::SendMany for WithReliableBroadcast<D, M, MainMsg>
+impl<D, M, MainMsg> crate::mpc::SendMany for WithEchoBroadcast<D, M, MainMsg>
 where
     D: Digest + 'static,
     M: crate::mpc::SendMany<Msg = Msg<D, MainMsg>>,
     MainMsg: ProtocolMsg + udigest::Digestable + Clone + 'static,
 {
-    type Exec = WithReliableBroadcast<D, M::Exec, MainMsg>;
+    type Exec = WithEchoBroadcast<D, M::Exec, MainMsg>;
     type Msg = MainMsg;
     type SendErr = error::Error<M::SendErr>;
 
@@ -407,7 +407,7 @@ where
 
     async fn flush(self) -> Result<Self::Exec, Self::SendErr> {
         let party = self.party.flush().await.map_err(error::Error::Main)?;
-        Ok(WithReliableBroadcast {
+        Ok(WithEchoBroadcast {
             party,
             i: self.i,
             n: self.n,
