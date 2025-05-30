@@ -18,6 +18,11 @@ thiserror = { version = "2", default-features = false }
 # We don't use it directy, but we need to enable `serde` feature
 generic-array = { version = "0.14", features = ["serde"] }
 
+udigest = { version = "0.2", default-features = false, features = ["derive"], optional = true }
+
+[features]
+udigest = ["dep:udigest"]
+
 [dev-dependencies]
 round-based = { path = "../../round-based", features = ["derive", "sim", "state-machine"]  }
 tokio = { version = "1.15", features = ["macros", "rt"] }

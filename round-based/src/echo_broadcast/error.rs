@@ -40,6 +40,23 @@ pub(super) enum Reason {
 
     #[error("cannot convert a sent round msg back from proto msg (it's a bug)")]
     SentMsgFromProto,
+
+    #[error(
+        "sent a message that doesn't require reliable broadcast in reliable broadcast \
+        round (round: {round}, dest: {dest:?})"
+    )]
+    SentNonReliableMsgInReliableRound {
+        dest: crate::MessageDestination,
+        round: u16,
+    },
+
+    #[error(
+        "sent a reliable broadcast message in a regular round that doesn't require \
+        reliable broadcast: you might have forgotten to register a reliable broadcast \
+        round, or round store doesn't expose a property required to identify a reliable \
+        broadcast round (round: {round})"
+    )]
+    SentReliableMsgInNonReliableRound { round: u16 },
 }
 
 #[derive(thiserror::Error, Debug)]

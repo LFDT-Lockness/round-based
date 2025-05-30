@@ -459,6 +459,7 @@ dependencies = [
  "sha2",
  "thiserror",
  "tokio",
+ "udigest",
 ]
 
 [[package]]
@@ -497,12 +498,15 @@ dependencies = [
 name = "round-based-tests"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "futures",
+ "hex",
  "hex-literal",
  "matches",
  "rand_chacha",
  "random-generation-protocol",
  "round-based",
+ "sha2",
  "tokio",
 ]
 
@@ -754,6 +758,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81cd61fa9fb78569e9fe34acf0048fd8cb9ebdbacc47af740745487287043ff0"
 dependencies = [
  "digest",
+ "udigest-derive",
+]
+
+[[package]]
+name = "udigest-derive"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "603329303137e0d59238ee4d6b9c085eada8e2a9d20666f3abd9dadf8f8543f4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
 ]
 
 [[package]]

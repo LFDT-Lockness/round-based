@@ -26,6 +26,8 @@ use crate::{
 mod error;
 mod store;
 
+pub use self::error::{CompleteRoundError, EchoError, Error};
+
 /// Message of the protocol with echo broadcast round(s)
 pub enum Msg<D: Digest, M> {
     /// Message from echo broadcast sub-protocol
@@ -73,6 +75,32 @@ impl<D: Digest, M: Clone> Clone for Msg<D, M> {
                 hash: hash.clone(),
             },
             Self::Main(msg) => Self::Main(msg.clone()),
+        }
+    }
+}
+
+impl<D: Digest, M: PartialEq> PartialEq for Msg<D, M> {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Self::Echo { round, hash } => {
+                matches!(other, Self::Echo { round: r2, hash: h2 } if round == r2 && hash == h2)
+            }
+            Self::Main(msg) => matches!(other, Self::Main(m2) if msg == m2),
+        }
+    }
+}
+
+impl<D: Digest, M: PartialEq> Eq for Msg<D, M> {}
+
+impl<D: Digest, M: core::fmt::Debug> core::fmt::Debug for Msg<D, M> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Echo { round, hash } => f
+                .debug_struct("Msg::Echo")
+                .field("round", round)
+                .field("hash", hash)
+                .finish(),
+            Self::Main(msg) => f.debug_tuple("Msg::Main").field(msg).finish(),
         }
     }
 }
@@ -214,13 +242,31 @@ where
     D: Digest,
     MainMsg: ProtocolMsg + Clone,
 {
-    fn on_send(&mut self, outgoing: &Outgoing<MainMsg>) -> Result<(), error::EchoError> {
+    fn on_send(&mut self, outgoing: &mut Outgoing<MainMsg>) -> Result<(), error::EchoError> {
         if let Some(slot) = self.sent_reliable_msgs.get_mut(&outgoing.msg.round()) {
+            if !outgoing.recipient.is_reliable_broadcast() {
+                // it's reliable broadcast round, but message is not reliable broadcast
+                return Err(error::Reason::SentNonReliableMsgInReliableRound {
+                    dest: outgoing.recipient,
+                    round: outgoing.msg.round(),
+                }
+                .into());
+            }
+            // Message delivery layer doesn't need to know that protocol wants this message to be
+            // reliably broadcasted - echo broadcast takes care of it
+            outgoing.recipient = crate::MessageDestination::AllParties { reliable: false };
             if slot.is_some() {
                 return Err(error::Reason::SendTwice.into());
             }
             *slot = Some(outgoing.msg.clone())
+        } else if outgoing.recipient.is_reliable_broadcast() {
+            // it's not a reliable broadcast round, but message is a reliable broadcast
+            return Err(error::Reason::SentReliableMsgInNonReliableRound {
+                round: outgoing.msg.round(),
+            }
+            .into());
         }
+
         Ok(())
     }
 }
@@ -298,8 +344,8 @@ where
         }
     }
 
-    async fn send(&mut self, outgoing: Outgoing<Self::Msg>) -> Result<(), Self::SendErr> {
-        self.on_send(&outgoing)?;
+    async fn send(&mut self, mut outgoing: Outgoing<Self::Msg>) -> Result<(), Self::SendErr> {
+        self.on_send(&mut outgoing)?;
 
         self.party
             .send(outgoing.map(Msg::Main))
@@ -351,8 +397,8 @@ where
     type Msg = MainMsg;
     type SendErr = error::Error<M::SendErr>;
 
-    async fn send(&mut self, outgoing: Outgoing<Self::Msg>) -> Result<(), Self::SendErr> {
-        self.on_send(&outgoing)?;
+    async fn send(&mut self, mut outgoing: Outgoing<Self::Msg>) -> Result<(), Self::SendErr> {
+        self.on_send(&mut outgoing)?;
         self.party
             .send(outgoing.map(Msg::Main))
             .await

@@ -89,7 +89,7 @@ impl<M> Incoming<M> {
 }
 
 /// Outgoing message
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Outgoing<M> {
     /// Message destination: either one party (p2p message) or all parties (broadcast message)
     pub recipient: MessageDestination,
