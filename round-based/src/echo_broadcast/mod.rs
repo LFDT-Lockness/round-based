@@ -6,12 +6,52 @@
 //! honest participants of the protocol has received the same message.
 //!
 //! One way to achieve the reliable broadcast is by adding an echo round: when we receive
-//! messages in a reliable broadcast round, we hash all messages, and send the hash to all
+//! messages in a reliable broadcast round, we hash all messages, and we send the hash to all
 //! other participants. If party receives a the same hash from everyone else, we can be
 //! assured that messages in the round were reliably broadcasted.
 //!
 //! This module provides a mechanism that automatically add an echo round per each
 //! round of the protocol that requires a reliable broadcast.
+//!
+//! ## Example
+//!
+//! ```rust
+//! # #[derive(round_based::ProtocolMsg)]
+//! # enum KeygenMsg {}
+//! # struct KeyShare;
+//! # struct Error;
+//! # type Result<T> = std::result::Result<T, Error>;
+//! # async fn doc() -> Result<()> {
+//! // protocol to be executed that **requires** reliable broadcast
+//! async fn keygen<M>(mpc: M, i: u16, n: u16) -> Result<KeyShare>
+//! where
+//!     M: round_based::Mpc<Msg = KeygenMsg>
+//! {
+//!     // ...
+//! # unimplemented!()
+//! }
+//! // establishes network connection(s) to other parties, but
+//! // **does not** support reliable broadcast
+//! async fn connect() ->
+//!     impl futures::Stream<Item = Result<round_based::Incoming<KeygenMsg>>>
+//!         + futures::Sink<round_based::Outgoing<KeygenMsg>, Error = Error>
+//!         + Unpin
+//! {
+//!     // ...
+//! # round_based::_docs::fake_delivery()
+//! }
+//! let delivery = connect().await;
+//!
+//! # let (i, n) = (1, 3);
+//! // constructs an MPC engine as usual
+//! let mpc = round_based::mpc::connected(delivery);
+//! // wrap an engine to add reliable broadcast support
+//! let mpc = round_based::echo_broadcast::wrap(mpc, i, n);
+//!
+//! // execute the protocol
+//! let keyshare = keygen(mpc, i, n).await?;
+//! # Ok(()) }
+//! ```
 
 use core::marker::PhantomData;
 
@@ -362,9 +402,7 @@ where
     }
 }
 
-/// Round registration witness
-///
-/// Returned by [`WithEchoBroadcast::add_round()`]
+/// Round registration witness returned by [`WithEchoBroadcast::add_round()`]
 pub struct Round<M, D, ProtoMsg, R>(Inner<M, D, ProtoMsg, R>)
 where
     M: MpcExecution,

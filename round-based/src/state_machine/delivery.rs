@@ -26,7 +26,7 @@ impl<M> futures_util::Stream for Delivery<M> {
     }
 }
 
-impl<M> crate::Sink<crate::Outgoing<M>> for Delivery<M> {
+impl<M> futures_util::Sink<crate::Outgoing<M>> for Delivery<M> {
     type Error = DeliveryErr;
 
     fn poll_ready(
