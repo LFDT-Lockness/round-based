@@ -477,6 +477,7 @@ dependencies = [
  "rand",
  "rand_dev",
  "round-based-derive",
+ "sha2",
  "thiserror",
  "tokio",
  "tokio-stream",

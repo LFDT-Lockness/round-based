@@ -140,6 +140,8 @@ mod false_positives {
     use trybuild as _;
 
     use {hex as _, rand as _, rand_dev as _};
+
+    use sha2 as _;
 }
 
 mod delivery;

@@ -16,7 +16,7 @@
 //! ## Example
 //!
 //! ```rust
-//! # #[derive(round_based::ProtocolMsg)]
+//! # #[derive(round_based::ProtocolMsg, Clone, udigest::Digestable)]
 //! # enum KeygenMsg {}
 //! # struct KeyShare;
 //! # struct Error;
@@ -30,11 +30,13 @@
 //!     // ...
 //! # unimplemented!()
 //! }
+//! // The full message type, which corresponds to keygen msg + echo broadcast msg
+//! type Msg = round_based::echo_broadcast::Msg<sha2::Sha256, KeygenMsg>;
 //! // establishes network connection(s) to other parties, but
 //! // **does not** support reliable broadcast
 //! async fn connect() ->
-//!     impl futures::Stream<Item = Result<round_based::Incoming<KeygenMsg>>>
-//!         + futures::Sink<round_based::Outgoing<KeygenMsg>, Error = Error>
+//!     impl futures::Stream<Item = Result<round_based::Incoming<Msg>>>
+//!         + futures::Sink<round_based::Outgoing<Msg>, Error = Error>
 //!         + Unpin
 //! {
 //!     // ...

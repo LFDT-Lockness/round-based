@@ -44,6 +44,8 @@ rand_dev = "0.1"
 
 anyhow = "1"
 
+sha2 = "0.10"
+
 [features]
 default = []
 state-machine = []
