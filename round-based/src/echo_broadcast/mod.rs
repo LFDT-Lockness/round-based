@@ -47,7 +47,7 @@
 //! # let (i, n) = (1, 3);
 //! // constructs an MPC engine as usual
 //! let mpc = round_based::mpc::connected(delivery);
-//! // wrap an engine to add reliable broadcast support
+//! // wraps an engine to add reliable broadcast support
 //! let mpc = round_based::echo_broadcast::wrap(mpc, i, n);
 //!
 //! // execute the protocol

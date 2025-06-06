@@ -88,7 +88,7 @@ impl<E> From<Reason> for Error<E> {
     }
 }
 
-/// An error returned in [round completion](<super::WithEchoBroadcast as crate::mpc::MpcExecution>::complete)
+/// An error returned in round completion
 #[derive(thiserror::Error, Debug)]
 pub enum CompleteRoundError<CompleteErr, SendErr> {
     /// Error occurred while handling received message(s)
