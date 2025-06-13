@@ -1,5 +1,8 @@
 use round_based::{state_machine::ProceedResult, Incoming, Outgoing};
 
+/// Wraps a state machine and provides convenient methods for feeding to and receiving messages from
+/// the state machine, removing a boilerplate for handling `Yield`-ing, and providing convenient
+/// methods for output assertions like `output.expect_eq()`
 pub struct PartySim<S>(S);
 
 pub fn new_one_party_sim<'a, M, F>(
