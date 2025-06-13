@@ -61,11 +61,11 @@ pub trait Mpc {
         R: RoundStore,
         Self::Msg: RoundMsg<R::Msg>;
 
-    /// Indicates that network setup is complete
+    /// Completes network setup
     ///
     /// Once this method is called, no more rounds can be added,
     /// but the protocol can receive and send messages.
-    fn finish(self) -> Self::Exec;
+    fn finish_setup(self) -> Self::Exec;
 }
 
 /// Abstracts functionalities needed for MPC protocol execution

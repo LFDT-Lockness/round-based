@@ -65,7 +65,7 @@ where
     // Define rounds
     let round1 = mpc.add_round(round_based::round::reliable_broadcast::<CommitMsg>(i, n));
     let round2 = mpc.add_round(round_based::round::broadcast::<DecommitMsg>(i, n));
-    let mut mpc = mpc.finish();
+    let mut mpc = mpc.finish_setup();
 
     // --- The Protocol ---
 

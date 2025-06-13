@@ -90,7 +90,7 @@ where
         self.router.add_round(round)
     }
 
-    fn finish(self) -> Self::Exec {
+    fn finish_setup(self) -> Self::Exec {
         MpcParty {
             router: self.router,
             io: self.io,

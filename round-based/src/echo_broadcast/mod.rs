@@ -274,8 +274,8 @@ where
         }
     }
 
-    fn finish(self) -> Self::Exec {
-        self.map_party(|p| p.finish())
+    fn finish_setup(self) -> Self::Exec {
+        self.map_party(|p| p.finish_setup())
     }
 }
 
