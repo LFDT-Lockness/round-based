@@ -45,12 +45,19 @@ pub mod party;
 #[doc(no_inline)]
 pub use self::party::{Halves, MpcParty};
 
-/// Abstracts functionalities needed for MPC protocol execution
+/// Abstracts functionalities needed for creating an MPC protocol execution.
+///
+/// An object implementing this trait is accepted as a parameter of a protocol. It is used to
+/// configure the protocol with [`Mpc::add_round`], and then finalized into a protocol executor
+/// with [`Mpc::finish_setup`]
 pub trait Mpc {
     /// Protocol message
     type Msg;
 
-    /// Returned in [`Self::finish_setup`]
+    /// A type of a finalized instatiation of a party for this protocol
+    ///
+    /// After being created with [`Mpc::finish_setup`], you can use an object with this type to
+    /// drive the protocol execution using the methods of [`MpcExecution`].
     type Exec: MpcExecution<Msg = Self::Msg, SendErr = Self::SendErr>;
     /// Error indicating that sending a message has failed
     type SendErr;
@@ -72,7 +79,8 @@ pub trait Mpc {
 pub trait MpcExecution {
     /// Witness that round was registered
     ///
-    /// It is used to retrieve messages in [`MpcExecution::complete`].
+    /// It's obtained by registering round in [`Mpc::add_round`], which then can be used to retrieve
+    /// messages from associated round by calling [`MpcExecution::complete`].
     type Round<R: RoundInfo>;
 
     /// Protocol message
@@ -88,7 +96,8 @@ pub trait MpcExecution {
 
     /// Completes the round
     ///
-    /// Waits until all messages in the round `R` are received, returns the received messages.
+    /// Waits until we receive all the messages in the round `R` from other parties. Returns
+    /// received messages.
     async fn complete<R>(
         &mut self,
         round: Self::Round<R>,
@@ -139,15 +148,25 @@ pub trait MpcExecution {
 
     /// Creates a buffer of outgoing messages so they can be sent all at once
     ///
-    /// When you have many messages that you want to send at once, using [`.send()`](Self::send) is not efficient,
-    /// as it will accumulate message delivery cost. Use this method to optimize sending many messages at once.
+    /// When you have many messages that you want to send at once, using [`.send()`](Self::send)
+    /// may be inefficient, as delivery implementation may pause the execution until the message is
+    /// received by the recipient. Use this method to send many messages in a batch.
+    ///
+    /// This method takes ownership of `self` to create the [impl SendMany](SendMany) object. After
+    /// enqueueing all the messages, you need to reclaim `self` back by calling [`SendMany::flush`].
     fn send_many(self) -> Self::SendMany;
 
-    /// Yields execution
+    /// Yields execution back to the async runtime
+    ///
+    /// Used in MPC protocols with many heavy synchronous computations. The protocol implementors
+    /// can manually insert yield points to ease the CPU contention
     async fn yield_now(&self);
 }
 
 /// Buffer, optimized for sending many messages at once
+///
+/// It's obtained by calling [`MpcExecution::send_many`], which takes ownership of `MpcExecution`. To reclaim
+/// ownership, call [`SendMany::flush`].
 pub trait SendMany {
     /// MPC executor, returned after successful [`.flush()`](Self::flush)
     type Exec: MpcExecution<Msg = Self::Msg, SendErr = Self::SendErr>;
@@ -161,8 +180,8 @@ pub trait SendMany {
     /// Similar to [`MpcExecution::send`], but possibly buffers a message until [`.flush()`](Self::flush) is
     /// called.
     ///
-    /// Message may be sent within the call (e.g. if internal buffer is full), but no sending is guaranteed
-    /// until [`.flush()`](Self::flush) is called.
+    /// A call to this function may send the message, but this is not guaranteed by the API. To
+    /// flush the sending queue and send all messages, use [`.flush()`](Self::flush).
     async fn send(&mut self, msg: Outgoing<Self::Msg>) -> Result<(), Self::SendErr>;
 
     /// Adds a p2p message to the sending queue
@@ -170,8 +189,8 @@ pub trait SendMany {
     /// Similar to [`MpcExecution::send_p2p`], but possibly buffers a message until [`.flush()`](Self::flush) is
     /// called.
     ///
-    /// Message may be sent within the call (e.g. if internal buffer is full), but no sending is guaranteed
-    /// until [`.flush()`](Self::flush) is called.
+    /// A call to this function may send the message, but this is not guaranteed by the API. To
+    /// flush the sending queue and send all messages, use [`.flush()`](Self::flush).
     async fn send_p2p(
         &mut self,
         recipient: PartyIndex,
@@ -185,8 +204,8 @@ pub trait SendMany {
     /// Similar to [`MpcExecution::send_to_all`], but possibly buffers a message until [`.flush()`](Self::flush) is
     /// called.
     ///
-    /// Message may be sent within the call (e.g. if internal buffer is full), but no sending is guaranteed
-    /// until [`.flush()`](Self::flush) is called.
+    /// A call to this function may send the message, but this is not guaranteed by the API. To
+    /// flush the sending queue and send all messages, use [`.flush()`](Self::flush).
     async fn send_to_all(&mut self, msg: Self::Msg) -> Result<(), Self::SendErr> {
         self.send(Outgoing::all_parties(msg)).await
     }
@@ -196,8 +215,8 @@ pub trait SendMany {
     /// Similar to [`MpcExecution::reliably_broadcast`], but possibly buffers a message until [`.flush()`](Self::flush) is
     /// called.
     ///
-    /// Message may be sent within the call (e.g. if internal buffer is full), but no sending is guaranteed
-    /// until [`.flush()`](Self::flush) is called.
+    /// A call to this function may send the message, but this is not guaranteed by the API. To
+    /// flush the sending queue and send all messages, use [`Self::flush`]
     async fn reliably_broadcast(&mut self, msg: Self::Msg) -> Result<(), Self::SendErr> {
         self.send(Outgoing::reliable_broadcast(msg)).await
     }
@@ -213,7 +232,7 @@ pub type CompleteRoundErr<M, E> = <<M as Mpc>::Exec as MpcExecution>::CompleteRo
 ///
 /// MPC protocols typically consist of several rounds, each round has differently typed message.
 /// `ProtocolMsg` and [`RoundMsg`] traits are used to examine received message: `ProtocolMsg::round`
-/// determines which round message belongs to, and then `RoundMessage` trait can be used to retrieve
+/// determines which round message belongs to, and then `RoundMsg` trait can be used to retrieve
 /// actual round-specific message.
 ///
 /// You should derive these traits using proc macro (requires `derive` feature):
@@ -280,7 +299,7 @@ pub type CompleteRoundErr<M, E> = <<M as Mpc>::Exec as MpcExecution>::CompleteRo
 /// }
 /// ```
 pub trait ProtocolMsg: Sized {
-    /// Number of round this message originates from
+    /// Number of the round that this message originates from
     fn round(&self) -> u16;
 }
 

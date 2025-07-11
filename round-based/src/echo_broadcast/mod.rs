@@ -109,6 +109,8 @@ mod sub_msg {
     }
 }
 
+// `D` doesn't implement traits like `Clone`, `Eq`, etc. so we have to implement those traits by hand
+
 impl<D: Digest, M: Clone> Clone for Msg<D, M> {
     fn clone(&self) -> Self {
         match self {
