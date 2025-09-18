@@ -10,8 +10,8 @@ use phantom_type::PhantomType;
 use tracing::{error, trace_span, warn};
 
 use crate::{
-    round::{RoundInfo, RoundStore},
     Incoming, ProtocolMsg, RoundMsg,
+    round::{RoundInfo, RoundStore},
 };
 
 /// Routes received messages between protocol rounds
@@ -70,7 +70,7 @@ where
                 return Err(errors::UnregisteredRound {
                     n: msg_round_n,
                     witness_provided: false,
-                })
+                });
             }
         };
         if message_round.needs_more_messages().no() {
@@ -102,7 +102,7 @@ where
                     n: M::ROUND,
                     witness_provided: true,
                 }
-                .into()))
+                .into()));
             }
         };
         if message_round.needs_more_messages().yes() {

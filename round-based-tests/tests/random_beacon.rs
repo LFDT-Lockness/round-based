@@ -1,14 +1,14 @@
 use std::convert::Infallible;
 
-use futures::{sink, stream, SinkExt};
+use futures::{SinkExt, sink, stream};
 use hex_literal::hex;
 use matches::assert_matches;
 use rand_chacha::rand_core::SeedableRng;
 
 use random_generation_protocol::{
-    protocol_of_random_generation, CommitMsg, DecommitMsg, Error, Msg,
+    CommitMsg, DecommitMsg, Error, Msg, protocol_of_random_generation,
 };
-use round_based::{mpc::party::CompleteRoundError, Incoming, MessageType};
+use round_based::{Incoming, MessageType, mpc::party::CompleteRoundError};
 
 const PARTY0_SEED: [u8; 32] =
     hex!("6772d079d5c984b3936a291e36b0d3dc6c474e36ed4afdfc973ef79a431ca870");

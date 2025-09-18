@@ -1,7 +1,7 @@
 [package]
 name = "round-based"
 version = "0.4.1"
-edition = "2021"
+edition.workspace = true
 license = "MIT OR Apache-2.0"
 description = "Driver for MPC protocols"
 repository = "https://github.com/LFDT-Lockness/round-based"

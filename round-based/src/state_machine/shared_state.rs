@@ -133,8 +133,8 @@ impl<M> core::fmt::Debug for SharedStateRef<M> {
 pub struct CanSchedule<T>(T);
 
 impl<M> CanSchedule<&SharedStateRef<M>> {
-    fn borrow_mut(&self) -> core::cell::RefMut<SharedState<M>> {
-        self.0 .0.borrow_mut()
+    fn borrow_mut(&self) -> core::cell::RefMut<'_, SharedState<M>> {
+        self.0.0.borrow_mut()
     }
 
     /// Flushes slot of outgoing message

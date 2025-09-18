@@ -1,4 +1,4 @@
-use core::task::{ready, Poll};
+use core::task::{Poll, ready};
 
 /// Provides a stream of incoming and sink for outgoing messages
 pub struct Delivery<M> {

@@ -1,4 +1,4 @@
-use round_based::{state_machine::ProceedResult, Incoming, Outgoing};
+use round_based::{Incoming, Outgoing, state_machine::ProceedResult};
 
 /// Wraps a state machine and provides convenient methods for feeding to and receiving messages from
 /// the state machine, removing a boilerplate for handling `Yield`-ing, and providing convenient

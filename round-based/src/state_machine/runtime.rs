@@ -1,4 +1,4 @@
-use core::task::{ready, Poll};
+use core::task::{Poll, ready};
 
 /// State machine runtime
 pub struct Runtime<M> {

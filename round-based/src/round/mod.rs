@@ -5,7 +5,7 @@ use core::any::Any;
 use crate::Incoming;
 
 pub use self::simple_store::{
-    broadcast, p2p, reliable_broadcast, RoundInput, RoundInputError, RoundMsgs,
+    RoundInput, RoundInputError, RoundMsgs, broadcast, p2p, reliable_broadcast,
 };
 
 mod simple_store;

@@ -61,8 +61,8 @@ use alloc::collections::btree_map::BTreeMap;
 use digest::Digest;
 
 use crate::{
-    round::{RoundInfo, RoundStore, RoundStoreExt},
     Mpc, MpcExecution, Outgoing, ProtocolMsg, RoundMsg,
+    round::{RoundInfo, RoundStore, RoundStoreExt},
 };
 
 mod error;
