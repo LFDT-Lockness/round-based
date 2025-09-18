@@ -11,14 +11,13 @@ impl<M> Runtime<M> {
     }
 }
 
-impl<M> crate::runtime::AsyncRuntime for Runtime<M> {
-    type YieldNowFuture = YieldNow<M>;
-
-    fn yield_now(&self) -> Self::YieldNowFuture {
+impl<M> crate::mpc::party::AsyncRuntime for Runtime<M> {
+    async fn yield_now(&self) {
         YieldNow {
             shared_state: self.shared_state.clone(),
             yielded: false,
         }
+        .await
     }
 }
 

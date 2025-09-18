@@ -8,19 +8,19 @@
 //! ## Example
 //! ```rust,no_run
 //! # fn main() -> anyhow::Result<()> {
-//! use round_based::{Mpc, PartyIndex};
 //! use anyhow::{Result, Error, Context as _};
 //!
 //! # type Randomness = [u8; 32];
-//! # type Msg = ();
+//! # #[derive(round_based::ProtocolMsg, Clone)]
+//! # enum Msg {}
 //! // Any MPC protocol
 //! pub async fn protocol_of_random_generation<M>(
 //!     party: M,
-//!     i: PartyIndex,
+//!     i: u16,
 //!     n: u16
 //! ) -> Result<Randomness>
 //! where
-//!     M: Mpc<ProtocolMessage = Msg>
+//!     M: round_based::Mpc<Msg = Msg>
 //! {
 //!     // ...
 //! # todo!()
@@ -67,8 +67,10 @@ mod shared_state;
 
 use core::{future::Future, task::Poll};
 
+use crate::ProtocolMsg;
+
 pub use self::{
-    delivery::{Incomings, Outgoings, SendErr},
+    delivery::{Delivery, DeliveryErr},
     runtime::{Runtime, YieldNow},
 };
 
@@ -226,9 +228,6 @@ where
     }
 }
 
-/// Delivery implementation used in the state machine
-pub type Delivery<M> = (Incomings<M>, Outgoings<M>);
-
 /// MpcParty instantiated with state machine implementation of delivery and async runtime
 pub type MpcParty<M> = crate::MpcParty<M, Delivery<M>, Runtime<M>>;
 
@@ -245,15 +244,13 @@ pub fn wrap_protocol<'a, M, F>(
 ) -> impl StateMachine<Output = F::Output, Msg = M> + 'a
 where
     F: Future + 'a,
-    M: 'static,
+    M: ProtocolMsg + 'static,
 {
     let shared_state = shared_state::SharedStateRef::new();
-    let incomings = Incomings::new(shared_state.clone());
-    let outgoings = Outgoings::new(shared_state.clone());
-    let delivery = (incomings, outgoings);
+    let delivery = Delivery::new(shared_state.clone());
     let runtime = Runtime::new(shared_state.clone());
 
-    let future = protocol(crate::MpcParty::connected(delivery).set_runtime(runtime));
+    let future = protocol(crate::mpc::connected(delivery).with_runtime(runtime));
     let future = alloc::boxed::Box::pin(future);
 
     StateMachineImpl {

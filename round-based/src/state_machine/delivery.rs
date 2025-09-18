@@ -1,18 +1,18 @@
 use core::task::{ready, Poll};
 
-/// Stream of incoming messages
-pub struct Incomings<M> {
+/// Provides a stream of incoming and sink for outgoing messages
+pub struct Delivery<M> {
     shared_state: super::shared_state::SharedStateRef<M>,
 }
 
-impl<M> Incomings<M> {
+impl<M> Delivery<M> {
     pub(super) fn new(shared_state: super::shared_state::SharedStateRef<M>) -> Self {
         Self { shared_state }
     }
 }
 
-impl<M> crate::Stream for Incomings<M> {
-    type Item = Result<crate::Incoming<M>, core::convert::Infallible>;
+impl<M> futures_util::Stream for Delivery<M> {
+    type Item = Result<crate::Incoming<M>, DeliveryErr>;
 
     fn poll_next(
         self: core::pin::Pin<&mut Self>,
@@ -26,19 +26,8 @@ impl<M> crate::Stream for Incomings<M> {
     }
 }
 
-/// Sink for outgoing messages
-pub struct Outgoings<M> {
-    shared_state: super::shared_state::SharedStateRef<M>,
-}
-
-impl<M> Outgoings<M> {
-    pub(super) fn new(shared_state: super::shared_state::SharedStateRef<M>) -> Self {
-        Self { shared_state }
-    }
-}
-
-impl<M> crate::Sink<crate::Outgoing<M>> for Outgoings<M> {
-    type Error = SendErr;
+impl<M> futures_util::Sink<crate::Outgoing<M>> for Delivery<M> {
+    type Error = DeliveryErr;
 
     fn poll_ready(
         self: core::pin::Pin<&mut Self>,
@@ -54,7 +43,7 @@ impl<M> crate::Sink<crate::Outgoing<M>> for Outgoings<M> {
     ) -> Result<(), Self::Error> {
         self.shared_state
             .protocol_saves_msg_to_be_sent(msg)
-            .map_err(|_| SendErr(SendErrReason::NotReady))
+            .map_err(|_| DeliveryErr(Reason::NotReady))
     }
 
     fn poll_flush(
@@ -73,13 +62,13 @@ impl<M> crate::Sink<crate::Outgoing<M>> for Outgoings<M> {
     }
 }
 
-/// Error returned by [`Outgoings`] sink
+/// Error returned by [`Delivery`]
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
-pub struct SendErr(SendErrReason);
+pub struct DeliveryErr(Reason);
 
 #[derive(Debug, thiserror::Error)]
-enum SendErrReason {
+enum Reason {
     #[error("sink is not ready")]
     NotReady,
 }

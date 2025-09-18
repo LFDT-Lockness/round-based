@@ -8,15 +8,12 @@
 /// Abstracts async runtime like [tokio]. Currently only exposes a [yield_now](Self::yield_now)
 /// function.
 pub trait AsyncRuntime {
-    /// Future type returned by [yield_now](Self::yield_now)
-    type YieldNowFuture: core::future::Future<Output = ()>;
-
     /// Yields the execution back to the runtime
     ///
     /// If the protocol performs a long computation, it might be better for performance
-    /// to split it with yield points, so the signle computation does not starve other
+    /// to split it with yield points, so the single computation does not starve other
     /// tasks.
-    fn yield_now(&self) -> Self::YieldNowFuture;
+    async fn yield_now(&self);
 }
 
 /// [Tokio](tokio)-specific async runtime
@@ -26,11 +23,8 @@ pub struct TokioRuntime;
 
 #[cfg(feature = "runtime-tokio")]
 impl AsyncRuntime for TokioRuntime {
-    type YieldNowFuture =
-        core::pin::Pin<alloc::boxed::Box<dyn core::future::Future<Output = ()> + Send>>;
-
-    fn yield_now(&self) -> Self::YieldNowFuture {
-        alloc::boxed::Box::pin(tokio::task::yield_now())
+    async fn yield_now(&self) {
+        tokio::task::yield_now().await
     }
 }
 
@@ -47,7 +41,7 @@ pub type DefaultRuntime = TokioRuntime;
 pub type DefaultRuntime = UnknownRuntime;
 
 /// Unknown async runtime
-pub mod unknown_runtime {
+mod unknown_runtime {
     /// Unknown async runtime
     ///
     /// Tries to implement runtime features using generic futures code. It's better to use
@@ -56,15 +50,13 @@ pub mod unknown_runtime {
     pub struct UnknownRuntime;
 
     impl super::AsyncRuntime for UnknownRuntime {
-        type YieldNowFuture = YieldNow;
-
-        fn yield_now(&self) -> Self::YieldNowFuture {
-            YieldNow(false)
+        async fn yield_now(&self) {
+            YieldNow(false).await
         }
     }
 
     /// Future for the `yield_now` function.
-    pub struct YieldNow(bool);
+    struct YieldNow(bool);
 
     impl core::future::Future for YieldNow {
         type Output = ();

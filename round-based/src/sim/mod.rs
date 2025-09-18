@@ -35,7 +35,8 @@
 //!
 //! # type Result<T, E = ()> = std::result::Result<T, E>;
 //! # type Randomness = [u8; 32];
-//! # type Msg = ();
+//! # #[derive(round_based::ProtocolMsg, Clone)]
+//! # enum Msg {}
 //! // Any MPC protocol you want to test
 //! pub async fn protocol_of_random_generation<M>(
 //!     party: M,
@@ -43,7 +44,7 @@
 //!     n: u16
 //! ) -> Result<Randomness>
 //! where
-//!     M: Mpc<ProtocolMessage = Msg>
+//!     M: Mpc<Msg = Msg>
 //! {
 //!     // ...
 //! # todo!()
@@ -67,7 +68,9 @@
 use alloc::{boxed::Box, collections::VecDeque, string::ToString, vec::Vec};
 use core::future::Future;
 
-use crate::{state_machine::ProceedResult, Incoming, MessageDestination, MessageType, Outgoing};
+use crate::{
+    state_machine::ProceedResult, Incoming, MessageDestination, MessageType, Outgoing, ProtocolMsg,
+};
 
 #[cfg(feature = "sim-async")]
 pub mod async_env;
@@ -229,7 +232,7 @@ enum Party<'a, O, M> {
 
 impl<'a, O, M> Simulation<'a, O, M>
 where
-    M: Clone + 'static,
+    M: ProtocolMsg + Clone + 'static,
 {
     /// Creates empty simulation containing no parties
     ///
@@ -415,7 +418,7 @@ impl<M: Clone> MessagesQueue<M> {
 
     fn send_message(&mut self, sender: u16, msg: Outgoing<M>) -> Result<(), SimError> {
         match msg.recipient {
-            MessageDestination::AllParties => {
+            MessageDestination::AllParties { reliable } => {
                 let mut msg_ids = self.next_id..;
                 for (destination, msg_id) in (0..)
                     .zip(&mut self.queue)
@@ -426,7 +429,7 @@ impl<M: Clone> MessagesQueue<M> {
                     destination.push_back(Incoming {
                         id: msg_id,
                         sender,
-                        msg_type: MessageType::Broadcast,
+                        msg_type: MessageType::Broadcast { reliable },
                         msg: msg.msg.clone(),
                     })
                 }
@@ -471,7 +474,8 @@ impl<M: Clone> MessagesQueue<M> {
 ///
 /// # type Result<T, E = ()> = std::result::Result<T, E>;
 /// # type Randomness = [u8; 32];
-/// # type Msg = ();
+/// # #[derive(round_based::ProtocolMsg, Clone)]
+/// # enum Msg {}
 /// // Any MPC protocol you want to test
 /// pub async fn protocol_of_random_generation<M>(
 ///     party: M,
@@ -479,7 +483,7 @@ impl<M: Clone> MessagesQueue<M> {
 ///     n: u16
 /// ) -> Result<Randomness>
 /// where
-///     M: Mpc<ProtocolMessage = Msg>
+///     M: Mpc<Msg = Msg>
 /// {
 ///     // ...
 /// # todo!()
@@ -504,10 +508,10 @@ pub fn run<M, F>(
     mut party_start: impl FnMut(u16, crate::state_machine::MpcParty<M>) -> F,
 ) -> Result<SimResult<F::Output>, SimError>
 where
-    M: Clone + 'static,
+    M: ProtocolMsg + Clone + 'static,
     F: Future,
 {
-    run_with_setup(core::iter::repeat(()).take(n.into()), |i, party, ()| {
+    run_with_setup(core::iter::repeat_n((), n.into()), |i, party, ()| {
         party_start(i, party)
     })
 }
@@ -525,7 +529,8 @@ where
 ///
 /// # type Result<T, E = ()> = std::result::Result<T, E>;
 /// # type Randomness = [u8; 32];
-/// # type Msg = ();
+/// # #[derive(round_based::ProtocolMsg, Clone)]
+/// # enum Msg {}
 /// // Any MPC protocol you want to test
 /// pub async fn protocol_of_random_generation<M>(
 ///     rng: impl rand::RngCore,
@@ -534,7 +539,7 @@ where
 ///     n: u16
 /// ) -> Result<Randomness>
 /// where
-///     M: Mpc<ProtocolMessage = Msg>
+///     M: Mpc<Msg = Msg>
 /// {
 ///     // ...
 /// # todo!()
@@ -559,7 +564,7 @@ pub fn run_with_setup<S, M, F>(
     mut party_start: impl FnMut(u16, crate::state_machine::MpcParty<M>, S) -> F,
 ) -> Result<SimResult<F::Output>, SimError>
 where
-    M: Clone + 'static,
+    M: ProtocolMsg + Clone + 'static,
     F: Future,
 {
     let mut sim = Simulation::empty();

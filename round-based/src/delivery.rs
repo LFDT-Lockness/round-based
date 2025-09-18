@@ -1,39 +1,3 @@
-use futures_util::{Sink, Stream};
-
-/// Networking abstraction
-///
-/// Basically, it's pair of channels: [`Stream`] for receiving messages, and [`Sink`] for sending
-/// messages to other parties.
-pub trait Delivery<M> {
-    /// Outgoing delivery channel
-    type Send: Sink<Outgoing<M>, Error = Self::SendError> + Unpin;
-    /// Incoming delivery channel
-    type Receive: Stream<Item = Result<Incoming<M>, Self::ReceiveError>> + Unpin;
-    /// Error of outgoing delivery channel
-    type SendError: core::error::Error + Send + Sync + 'static;
-    /// Error of incoming delivery channel
-    type ReceiveError: core::error::Error + Send + Sync + 'static;
-    /// Returns a pair of incoming and outgoing delivery channels
-    fn split(self) -> (Self::Receive, Self::Send);
-}
-
-impl<M, I, O, IErr, OErr> Delivery<M> for (I, O)
-where
-    I: Stream<Item = Result<Incoming<M>, IErr>> + Unpin,
-    O: Sink<Outgoing<M>, Error = OErr> + Unpin,
-    IErr: core::error::Error + Send + Sync + 'static,
-    OErr: core::error::Error + Send + Sync + 'static,
-{
-    type Send = O;
-    type Receive = I;
-    type SendError = OErr;
-    type ReceiveError = IErr;
-
-    fn split(self) -> (Self::Receive, Self::Send) {
-        (self.0, self.1)
-    }
-}
-
 /// Incoming message
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Incoming<M> {
@@ -52,7 +16,11 @@ pub struct Incoming<M> {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MessageType {
     /// Message was broadcasted
-    Broadcast,
+    Broadcast {
+        /// Indicates that message was reliably broadcasted, meaning that it's guaranteed (cryptographically or through
+        /// other trust assumptions) that all honest participants of the protocol received the same message
+        reliable: bool,
+    },
     /// P2P message
     P2P,
 }
@@ -104,9 +72,14 @@ impl<M> Incoming<M> {
         }
     }
 
-    /// Checks whether it's broadcast message
+    /// Checks whether it's broadcast message (regardless if it's reliable or not)
     pub fn is_broadcast(&self) -> bool {
         matches!(self.msg_type, MessageType::Broadcast { .. })
+    }
+
+    /// Checks if message was reliably broadcasted
+    pub fn is_reliably_broadcasted(&self) -> bool {
+        matches!(self.msg_type, MessageType::Broadcast { reliable: true })
     }
 
     /// Checks whether it's p2p message
@@ -116,7 +89,7 @@ impl<M> Incoming<M> {
 }
 
 /// Outgoing message
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Outgoing<M> {
     /// Message destination: either one party (p2p message) or all parties (broadcast message)
     pub recipient: MessageDestination,
@@ -126,9 +99,17 @@ pub struct Outgoing<M> {
 
 impl<M> Outgoing<M> {
     /// Constructs an outgoing message addressed to all parties
-    pub fn broadcast(msg: M) -> Self {
+    pub fn all_parties(msg: M) -> Self {
         Self {
-            recipient: MessageDestination::AllParties,
+            recipient: MessageDestination::AllParties { reliable: false },
+            msg,
+        }
+    }
+
+    /// Constructs an outgoing message addressed to all parties via reliable broadcast channel
+    pub fn reliable_broadcast(msg: M) -> Self {
+        Self {
+            recipient: MessageDestination::AllParties { reliable: true },
             msg,
         }
     }
@@ -175,7 +156,12 @@ impl<M> Outgoing<M> {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MessageDestination {
     /// Broadcast message
-    AllParties,
+    AllParties {
+        /// Indicates that message needs to be reliably broadcasted, meaning that when recipient receives this message,
+        /// it must be assured (cryptographically or through other trust assumptions) that all honest participants of the
+        /// protocol received the same message
+        reliable: bool,
+    },
     /// P2P message
     OneParty(PartyIndex),
 }
@@ -185,8 +171,12 @@ impl MessageDestination {
     pub fn is_p2p(&self) -> bool {
         matches!(self, MessageDestination::OneParty(_))
     }
-    /// Returns `true` if it's broadcast message
+    /// Returns `true` if it's broadcast message (regardless if it's reliable or not)
     pub fn is_broadcast(&self) -> bool {
         matches!(self, MessageDestination::AllParties { .. })
+    }
+    /// Returns `true` if it's reliable broadcast message
+    pub fn is_reliable_broadcast(&self) -> bool {
+        matches!(self, MessageDestination::AllParties { reliable: true })
     }
 }

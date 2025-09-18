@@ -1,21 +1,11 @@
-use core::convert::Infallible;
+use futures_util::{Sink, SinkExt, Stream};
 
-use phantom_type::PhantomType;
+use crate::{Incoming, Outgoing};
 
-use crate::{Delivery, Incoming, Outgoing};
-
-pub fn fake_delivery<M>() -> impl Delivery<M> {
-    struct FakeDelivery<M>(PhantomType<M>);
-    impl<M> Delivery<M> for FakeDelivery<M> {
-        type Send = futures_util::sink::Drain<Outgoing<M>>;
-        type Receive = futures_util::stream::Pending<Result<Incoming<M>, Infallible>>;
-
-        type SendError = Infallible;
-        type ReceiveError = Infallible;
-
-        fn split(self) -> (Self::Receive, Self::Send) {
-            (futures_util::stream::pending(), futures_util::sink::drain())
-        }
-    }
-    FakeDelivery(PhantomType::new())
+pub fn fake_delivery<M, E>(
+) -> impl Stream<Item = Result<Incoming<M>, E>> + Sink<Outgoing<M>, Error = E> + Unpin {
+    crate::mpc::Halves::new(
+        futures_util::stream::pending::<Result<Incoming<M>, E>>(),
+        futures_util::sink::drain().sink_map_err(|e| match e {}),
+    )
 }
