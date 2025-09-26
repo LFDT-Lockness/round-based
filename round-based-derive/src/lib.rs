@@ -4,7 +4,7 @@ use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Generics, Ident, Token, Variant};
+use syn::{Data, DeriveInput, Fields, Generics, Ident, Token, Variant, parse_macro_input};
 
 #[proc_macro_derive(ProtocolMsg, attributes(protocol_msg))]
 pub fn protocol_msg(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

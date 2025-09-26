@@ -16,11 +16,11 @@ mod _unused_deps {
 use alloc::{vec, vec::Vec};
 
 use serde::{Deserialize, Serialize};
-use sha2::{digest::Output, Digest, Sha256};
+use sha2::{Digest, Sha256, digest::Output};
 
 use round_based::{
-    mpc::{Mpc, MpcExecution},
     MsgId,
+    mpc::{Mpc, MpcExecution},
 };
 
 /// Protocol message
@@ -211,16 +211,16 @@ mod tests {
     fn state_machine() {
         use super::{CommitMsg, DecommitMsg, Msg};
         use round_based::{
-            state_machine::{ProceedResult, StateMachine},
             Incoming, Outgoing,
+            state_machine::{ProceedResult, StateMachine},
         };
 
         let mut rng = rand_dev::DevRng::new();
 
-        let party1_rng: [u8; 32] = rng.gen();
+        let party1_rng: [u8; 32] = rng.r#gen();
         let party1_com = Sha256::digest(party1_rng);
 
-        let party2_rng: [u8; 32] = rng.gen();
+        let party2_rng: [u8; 32] = rng.r#gen();
         let party2_com = Sha256::digest(party2_rng);
 
         // Start the protocol

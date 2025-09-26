@@ -69,7 +69,7 @@ use alloc::{boxed::Box, collections::VecDeque, string::ToString, vec::Vec};
 use core::future::Future;
 
 use crate::{
-    state_machine::ProceedResult, Incoming, MessageDestination, MessageType, Outgoing, ProtocolMsg,
+    Incoming, MessageDestination, MessageType, Outgoing, ProtocolMsg, state_machine::ProceedResult,
 };
 
 #[cfg(feature = "sim-async")]

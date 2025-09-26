@@ -3,8 +3,8 @@ use core::marker::PhantomData;
 use digest::Digest;
 
 use crate::{
-    round::{RoundInfo, RoundInput, RoundMsgs, RoundStore},
     Incoming, RoundMsg,
+    round::{RoundInfo, RoundInput, RoundMsgs, RoundStore},
 };
 
 use super::{error, sub_msg};
@@ -99,7 +99,7 @@ where
             }
             MainRoundState::Gone => return Err(error::Reason::StateGone.into()),
             MainRoundState::Output { .. } | MainRoundState::Finished => {
-                return Err(error::Reason::ReceivedMainMsgWhenRoundOver.into())
+                return Err(error::Reason::ReceivedMainMsgWhenRoundOver.into());
             }
         };
 

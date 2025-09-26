@@ -36,8 +36,8 @@
 //! ```
 
 use crate::{
-    round::{RoundInfo, RoundStore},
     Outgoing, PartyIndex,
+    round::{RoundInfo, RoundStore},
 };
 
 pub mod party;

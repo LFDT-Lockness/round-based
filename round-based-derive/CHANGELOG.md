@@ -1,3 +1,6 @@
+## v0.5.0
+* Update derive macros to be compatible with new round-based API
+
 ## v0.2.2
 * Update links in crate settings [#11]
 

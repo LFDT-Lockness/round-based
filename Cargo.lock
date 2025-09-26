@@ -464,7 +464,7 @@ dependencies = [
 
 [[package]]
 name = "round-based"
-version = "0.4.1"
+version = "0.5.0-alpha.1"
 dependencies = [
  "anyhow",
  "digest",
@@ -488,7 +488,7 @@ dependencies = [
 
 [[package]]
 name = "round-based-derive"
-version = "0.2.2"
+version = "0.5.0-alpha.1"
 dependencies = [
  "proc-macro2",
  "quote",

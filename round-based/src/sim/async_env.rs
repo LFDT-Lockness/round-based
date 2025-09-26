@@ -74,13 +74,13 @@ use core::{
 
 use futures_util::{Sink, Stream};
 use tokio::sync::broadcast;
-use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
+use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 
-use crate::{
-    delivery::{Incoming, Outgoing},
-    ProtocolMsg,
-};
 use crate::{MessageDestination, MessageType, MpcParty, MsgId, PartyIndex};
+use crate::{
+    ProtocolMsg,
+    delivery::{Incoming, Outgoing},
+};
 
 use super::SimResult;
 

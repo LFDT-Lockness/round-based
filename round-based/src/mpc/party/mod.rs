@@ -3,8 +3,8 @@
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
 
 use crate::{
-    round::{RoundInfo, RoundStore},
     Incoming, Outgoing,
+    round::{RoundInfo, RoundStore},
 };
 
 use super::{Mpc, MpcExecution, ProtocolMsg, RoundMsg};
@@ -12,7 +12,7 @@ use super::{Mpc, MpcExecution, ProtocolMsg, RoundMsg};
 mod router;
 pub mod runtime;
 
-pub use self::router::{errors::RouterError, Round};
+pub use self::router::{Round, errors::RouterError};
 #[doc(no_inline)]
 pub use self::runtime::AsyncRuntime;
 

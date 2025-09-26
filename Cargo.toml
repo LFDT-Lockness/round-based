@@ -9,3 +9,6 @@ members = [
 exclude = [
     "wasm/no_std",
 ]
+
+[workspace.package]
+edition = "2024"
