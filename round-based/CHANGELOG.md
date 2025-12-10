@@ -1,5 +1,12 @@
+## v0.4.2
+* Add `RoundInput::received_msg_from` method [#19]
+
+[#19]: https://github.com/LFDT-Lockness/round-based/pull/19
+
 ## v0.4.1
 * Add methods to MpcParty to change its components [#15]
+
+[#15]: https://github.com/LFDT-Lockness/round-based/pull/15
 
 ## v0.4.0
 * BREAKING: Improve ergonomics of protocol simulation, which is used for writing tests [#14]
