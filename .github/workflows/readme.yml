@@ -2,7 +2,7 @@ name: Check README
 
 on:
   pull_request:
-    branches: [ "*" ]
+    branches: [ "**" ]
     
 env:
   CARGO_TERM_COLOR: always
