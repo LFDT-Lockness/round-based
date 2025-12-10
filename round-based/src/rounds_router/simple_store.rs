@@ -123,6 +123,13 @@ impl<M> RoundInput<M> {
     /// # Ok(()) }
     /// ```
     pub fn received_msg_from(&self, j: PartyIndex) -> bool {
+        let j = if j < self.i {
+            j
+        } else if j == self.i {
+            return false;
+        } else {
+            j - 1
+        };
         self.messages
             .get(usize::from(j))
             .map(|slot| slot.is_some())
