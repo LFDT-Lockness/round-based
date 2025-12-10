@@ -97,6 +97,38 @@ impl<M> RoundInput<M> {
         Self::new(i, n, MessageType::P2P)
     }
 
+    /// Checks if message from party `j` has already been received
+    ///
+    /// Returns `true` if the store has previously obtained a message from party `j` through
+    /// [`RoundInput::add_message`] call. Returns `false` if `j` corresponds to index of local party
+    /// `i` (provided in constructor like [`RoundInput::new`]), if `j ≥ n` (`n` is amount of parties
+    /// provided in constructor like [`RoundInput::new`]), or if message from party `j` is not yet
+    /// received.
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use round_based::rounds_router::{MessagesStore, simple_store::RoundInput};
+    /// # use round_based::{Incoming, MessageType};
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut input = RoundInput::<&'static str>::broadcast(1, 3);
+    /// assert!(!input.received_msg_from(0));
+    /// input.add_message(Incoming{
+    ///     id: 0,
+    ///     sender: 0,
+    ///     msg_type: MessageType::Broadcast,
+    ///     msg: "first party message",
+    /// })?;
+    /// assert!(input.received_msg_from(0));
+    /// #
+    /// # Ok(()) }
+    /// ```
+    pub fn received_msg_from(&self, j: PartyIndex) -> bool {
+        self.messages
+            .get(usize::from(j))
+            .map(|slot| slot.is_some())
+            .unwrap_or(false)
+    }
+
     fn is_expected_type_of_msg(&self, msg_type: MessageType) -> bool {
         self.expected_msg_type == msg_type
     }
