@@ -1,0 +1,30 @@
+[package]
+name = "dkls23-keygen"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[dependencies]
+round-based = { path = "../../round-based", default-features = false, features = ["derive"] }
+
+generic-ec = { version = "0.5", default-features = false }
+generic-ec-zkp = { version = "0.5", default-features = false, features = ["udigest", "serde"] }
+
+rand_core = { version = "0.6", default-features = false }
+digest = { version = "0.10", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+udigest = { version = "0.2", default-features = false, features = ["derive"] }
+
+thiserror = { version = "2", default-features = false }
+
+# We don't use it directly, but we need to enable `serde` feature
+generic-array = { version = "0.14", features = ["serde"] }
+
+[dev-dependencies]
+round-based = { path = "../../round-based", features = ["derive", "sim", "sim-async", "state-machine"] }
+generic-ec = { version = "0.5", features = ["curve-secp256k1", "curve-secp256r1"] }
+sha2 = "0.10"
+tokio = { version = "1.15", features = ["macros", "rt"] }
+hex = "0.4"
+rand_dev = "0.1"
+rand = "0.8"

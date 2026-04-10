@@ -5,6 +5,7 @@ members = [
     "round-based-tests",
     "round-based-derive",
     "examples/random-generation-protocol",
+    "examples/dkls23-keygen",
 ]
 exclude = [
     "wasm/no_std",
