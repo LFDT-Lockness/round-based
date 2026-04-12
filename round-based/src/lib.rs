@@ -128,7 +128,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg, doc_cfg_hide))]
 #![warn(unused_crate_dependencies, missing_docs)]
 #![allow(async_fn_in_trait)]
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 

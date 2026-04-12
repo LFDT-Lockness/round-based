@@ -346,3 +346,6 @@ where
 {
     MpcParty::connected_halves(incomings, outgoings)
 }
+
+#[cfg(feature = "std")]
+pub mod profiler;
