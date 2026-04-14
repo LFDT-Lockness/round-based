@@ -347,5 +347,5 @@ where
     MpcParty::connected_halves(incomings, outgoings)
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "perf-profiler")]
 pub mod profiler;

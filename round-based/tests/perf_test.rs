@@ -1,4 +1,4 @@
-#[cfg(feature = "std")]
+#[cfg(feature = "perf-profiler")]
 mod tests {
     use round_based::{mpc::profiler::{wrapper::PerfProfiler, stats}, MpcExecution, Outgoing, RoundMsg, ProtocolMsg};
     use std::time::Duration;

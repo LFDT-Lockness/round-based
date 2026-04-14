@@ -23,7 +23,7 @@ thiserror = { version = "2", default-features = false }
 
 round-based-derive = { version = "0.5.0-alpha.0", optional = true, path = "../round-based-derive" }
 
-tokio = { version = "1", features = ["rt", "time"], optional = true }
+tokio = { version = "1", features = ["rt"], optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 
 pin-project-lite = "0.2"
@@ -48,6 +48,7 @@ sha2 = "0.10"
 
 [features]
 default = []
+perf-profiler = ["std"]
 state-machine = []
 sim = ["state-machine"]
 sim-async = ["sim", "tokio/sync", "tokio-stream", "futures-util/alloc"]
