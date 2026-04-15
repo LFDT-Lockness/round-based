@@ -125,12 +125,14 @@
 //! ## Join us in Discord!
 //! Feel free to reach out to us [in Discord](https://discordapp.com/channels/905194001349627914/1285268686147424388)!
 
+#![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg, doc_cfg_hide))]
 #![warn(unused_crate_dependencies, missing_docs)]
 #![allow(async_fn_in_trait)]
-#![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
 /// Fixes false-positive of `unused_crate_dependencies` lint that only occur in the tests
 #[cfg(test)]

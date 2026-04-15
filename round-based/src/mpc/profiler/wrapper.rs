@@ -1,20 +1,24 @@
 use std::time::{Duration, Instant};
 
-use crate::{MpcExecution, Outgoing, RoundMsg, mpc::SendMany, round::RoundInfo};
+use crate::{
+    Mpc, MpcExecution, Outgoing, RoundMsg,
+    mpc::SendMany,
+    round::{RoundInfo, RoundStore},
+};
 
 use super::profiling::{PerfReport, RoundStats};
 
-/// Extension trait that allows to wrap any MPC execution with a performance profiler.
-pub trait ProfilerExt: MpcExecution + Sized {
-    /// Wraps the MPC execution with a performance profiler.
+/// Extension trait that allows to wrap any MPC engine or execution with a performance profiler.
+pub trait ProfilerExt: Sized {
+    /// Wraps the MPC engine or execution with a performance profiler.
     fn profile(self) -> PerfProfiler<Self> {
         PerfProfiler::new(self)
     }
 }
 
-impl<M: MpcExecution> ProfilerExt for M {}
+impl<M> ProfilerExt for M {}
 
-/// A wrapper around an MPC execution that measures performance.
+/// A wrapper around an MPC engine or execution that measures performance.
 ///
 /// It measures computation time (time between MPC calls) and I/O time (time spent inside MPC calls).
 pub struct PerfProfiler<M> {

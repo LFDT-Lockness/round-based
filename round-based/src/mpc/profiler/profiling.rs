@@ -1,5 +1,6 @@
 use std::fmt;
 use std::time::Duration;
+use std::vec::Vec;
 
 /// Statistics for a single round of an MPC protocol.
 #[derive(Debug, Clone, Default)]

@@ -1,8 +1,11 @@
 #[cfg(feature = "perf-profiler")]
 mod tests {
-    use round_based::{mpc::profiler::{wrapper::PerfProfiler, stats}, MpcExecution, Outgoing, RoundMsg, ProtocolMsg};
-    use std::time::Duration;
+    use round_based::{
+        MpcExecution, Outgoing, ProtocolMsg, RoundMsg,
+        mpc::profiler::{stats, wrapper::PerfProfiler},
+    };
     use std::thread;
+    use std::time::Duration;
 
     struct MockMpc;
 
@@ -21,7 +24,9 @@ mod tests {
 
     impl RoundMsg<()> for MockMsg {
         const ROUND: u16 = 1;
-        fn to_protocol_msg(m: ()) -> Self { MockMsg::Round1(m) }
+        fn to_protocol_msg(m: ()) -> Self {
+            MockMsg::Round1(m)
+        }
         fn from_protocol_msg(protocol_msg: Self) -> Result<(), Self> {
             match protocol_msg {
                 MockMsg::Round1(m) => Ok(m),
@@ -91,17 +96,28 @@ mod tests {
         // --- ROUND 1 ---
         // 1. Computation happens
         profiler.get_ref().simulate_round().await;
-        
+
         // 2. I/O happens via send
-        profiler.send(Outgoing::all_parties(MockMsg::Round1(()))).await.unwrap();
+        profiler
+            .send(Outgoing::all_parties(MockMsg::Round1(())))
+            .await
+            .unwrap();
 
         let report = profiler.into_report();
 
         // Check if computation is at least 50ms
-        assert!(report.total_computation() >= Duration::from_millis(50), "Computation time was {:?}", report.total_computation());
+        assert!(
+            report.total_computation() >= Duration::from_millis(50),
+            "Computation time was {:?}",
+            report.total_computation()
+        );
         // Check if I/O is at least 100ms
-        assert!(report.total_io() >= Duration::from_millis(100), "IO time was {:?}", report.total_io());
-        
+        assert!(
+            report.total_io() >= Duration::from_millis(100),
+            "IO time was {:?}",
+            report.total_io()
+        );
+
         println!("{}", report);
     }
 

@@ -1,7 +1,10 @@
 //! Statistics for MPC protocol execution.
 
 use super::profiling::PerfReport;
+use std::string::{String, ToString};
 use std::time::Duration;
+use std::vec::Vec;
+use std::{format, println};
 
 /// Aggregated statistics for a set of durations.
 #[derive(Debug)]

@@ -61,3 +61,7 @@ echo-broadcast = ["dep:digest", "dep:udigest"]
 [[test]]
 name = "derive"
 required-features = ["derive"]
+
+[[test]]
+name = "perf_test"
+required-features = ["perf-profiler"]
