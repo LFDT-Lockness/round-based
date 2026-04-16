@@ -1,10 +1,9 @@
 #[cfg(feature = "perf-profiler")]
 mod tests {
     use round_based::{
-        MpcExecution, Outgoing, ProtocolMsg, RoundMsg,
-        mpc::profiler::{stats, wrapper::PerfProfiler},
+        Mpc, MpcExecution, Outgoing, ProtocolMsg, RoundMsg, mpc::profiler::profiling::PerfReport,
+        mpc::profiler::stats, mpc::profiler::wrapper::PerfProfiler,
     };
-    use std::thread;
     use std::time::Duration;
 
     struct MockMpc;
@@ -31,6 +30,23 @@ mod tests {
             match protocol_msg {
                 MockMsg::Round1(m) => Ok(m),
             }
+        }
+    }
+
+    impl Mpc for MockMpc {
+        type Msg = MockMsg;
+        type Exec = MockMpc;
+        type SendErr = core::convert::Infallible;
+
+        fn add_round<R>(&mut self, _round: R) -> <Self::Exec as MpcExecution>::Round<R>
+        where
+            R: round_based::round::RoundStore,
+            Self::Msg: RoundMsg<R::Msg>,
+        {
+        }
+
+        fn finish_setup(self) -> Self::Exec {
+            self
         }
     }
 
@@ -62,7 +78,9 @@ mod tests {
             MockSendMany
         }
 
-        async fn yield_now(&self) {}
+        async fn yield_now(&self) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
     }
 
     struct MockSendMany;
@@ -82,9 +100,9 @@ mod tests {
     }
 
     impl MockMpc {
-        async fn simulate_round(&self) {
+        fn simulate_computation(&self) {
             // Simulate "Pure Computation"
-            thread::sleep(Duration::from_millis(50));
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
 
@@ -95,7 +113,7 @@ mod tests {
 
         // --- ROUND 1 ---
         // 1. Computation happens
-        profiler.get_ref().simulate_round().await;
+        profiler.get_ref().simulate_computation();
 
         // 2. I/O happens via send
         profiler
@@ -113,9 +131,9 @@ mod tests {
         );
         // Check if I/O is at least 100ms
         assert!(
-            report.total_io() >= Duration::from_millis(100),
-            "IO time was {:?}",
-            report.total_io()
+            report.total_sent_io() >= Duration::from_millis(100),
+            "Sent IO time was {:?}",
+            report.total_sent_io()
         );
 
         println!("{}", report);
@@ -123,18 +141,18 @@ mod tests {
 
     #[test]
     fn test_statistical_analysis() {
-        use round_based::mpc::profiler::{profiling::PerfReport, profiling::RoundStats};
-
         // Create dummy reports to test the math
         let mut reports = Vec::new();
         for i in 1..=10 {
-            reports.push(PerfReport {
-                rounds: vec![RoundStats {
-                    round: 1,
-                    computation_time: Duration::from_millis(i * 10), // 10, 20, ... 100
-                    io_time: Duration::from_millis(50),
-                }],
-            });
+            let mut report = PerfReport::default();
+            report.apply_stats(
+                1,
+                Duration::from_millis(i * 10), // 10, 20, ... 100
+                Duration::from_millis(50),
+                Duration::ZERO,
+                Duration::ZERO,
+            );
+            reports.push(report);
         }
 
         // Capture total times
@@ -154,22 +172,21 @@ mod tests {
 
     #[test]
     fn test_report_display_formatting() {
-        use round_based::mpc::profiler::{profiling::PerfReport, profiling::RoundStats};
-
-        let report = PerfReport {
-            rounds: vec![
-                RoundStats {
-                    round: 1,
-                    computation_time: Duration::from_millis(15),
-                    io_time: Duration::from_millis(45),
-                },
-                RoundStats {
-                    round: 2,
-                    computation_time: Duration::from_millis(20),
-                    io_time: Duration::from_millis(30),
-                },
-            ],
-        };
+        let mut report = PerfReport::default();
+        report.apply_stats(
+            1,
+            Duration::from_millis(15),
+            Duration::from_millis(45),
+            Duration::ZERO,
+            Duration::ZERO,
+        );
+        report.apply_stats(
+            2,
+            Duration::from_millis(20),
+            Duration::ZERO,
+            Duration::from_millis(30),
+            Duration::ZERO,
+        );
 
         let output = format!("{}", report);
         assert!(output.contains("Round 1"));

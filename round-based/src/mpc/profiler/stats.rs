@@ -25,6 +25,7 @@ pub struct AggregatedStats {
 
 impl std::fmt::Display for AggregatedStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Table-like formatting: {:<N} left-aligns the value and pads it to N characters for a clean grid
         write!(
             f,
             "{:<20} | Mean: {:<10} | Dev: {:<10} | p50: {:<10} | p75: {:<10} | p90: {:<10}",
