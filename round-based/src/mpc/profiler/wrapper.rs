@@ -1,5 +1,6 @@
-use core::cell::{Cell, RefCell};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
+use std::vec::Vec;
 
 use crate::{
     Mpc, MpcExecution, Outgoing, ProtocolMsg, RoundMsg,
@@ -7,41 +8,54 @@ use crate::{
     round::{RoundInfo, RoundStore},
 };
 
-use super::profiling::PerfReport;
+use super::profiling::{Event, PerfReport};
+
+/// A handle to the performance profiler that can be used to generate a report
+/// even after the profiler itself has been consumed.
+#[derive(Clone)]
+pub struct PerfProfilerHandle {
+    events: Arc<Mutex<Vec<Event>>>,
+    start_time: Instant,
+}
+
+impl PerfProfilerHandle {
+    /// Consumes the handle and returns the performance report.
+    pub fn into_report(self) -> PerfReport {
+        let end_time = Instant::now();
+        let events = self.events.lock().unwrap().clone();
+        PerfReport::from_events(self.start_time, end_time, events)
+    }
+}
 
 /// A wrapper around an MPC engine or execution that measures performance.
 ///
-/// It measures computation time (time between MPC calls) and I/O time (time spent inside MPC calls).
+/// It stores a sequence of events (I/O and Yield) and uses them to calculate performance stats.
 pub struct PerfProfiler<M> {
     inner: M,
-    report: RefCell<PerfReport>,
-    last_resume: Cell<Instant>,
+    events: Arc<Mutex<Vec<Event>>>,
+    start_time: Instant,
 }
 
 impl<M> PerfProfiler<M> {
-    /// Creates a new performance profiler.
-    pub fn new(inner: M) -> Self {
-        Self {
-            inner,
-            report: RefCell::new(PerfReport::default()),
-            last_resume: Cell::new(Instant::now()),
-        }
+    /// Creates a new performance profiler and a handle to retrieve the report.
+    pub fn new(inner: M) -> (Self, PerfProfilerHandle) {
+        let start_time = Instant::now();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        (
+            Self {
+                inner,
+                events: events.clone(),
+                start_time,
+            },
+            PerfProfilerHandle { events, start_time },
+        )
     }
 
     /// Consumes the profiler and returns the performance report.
     pub fn into_report(self) -> PerfReport {
-        let elapsed = self.last_resume.get().elapsed();
-        if elapsed != Duration::ZERO {
-            // Attribute trailing time to round 0 (Global/Teardown)
-            self.report.borrow_mut().apply_stats(
-                0,
-                elapsed,
-                Duration::ZERO,
-                Duration::ZERO,
-                Duration::ZERO,
-            );
-        }
-        self.report.into_inner()
+        let end_time = Instant::now();
+        let events = self.events.lock().unwrap().clone();
+        PerfReport::from_events(self.start_time, end_time, events)
     }
 
     /// Returns a reference to the inner MPC execution.
@@ -58,19 +72,6 @@ impl<M> PerfProfiler<M> {
     pub fn into_inner(self) -> M {
         self.inner
     }
-
-    fn update_report(
-        &self,
-        round: usize,
-        comp_time: Duration,
-        sent_io: Duration,
-        recv_io: Duration,
-        yield_time: Duration,
-    ) {
-        self.report
-            .borrow_mut()
-            .apply_stats(round, comp_time, sent_io, recv_io, yield_time);
-    }
 }
 
 impl<M: Mpc> Mpc for PerfProfiler<M>
@@ -86,32 +87,14 @@ where
         R: RoundStore,
         Self::Msg: RoundMsg<R::Msg>,
     {
-        let elapsed = self.last_resume.get().elapsed();
-        let round_idx = <Self::Msg as RoundMsg<R::Msg>>::ROUND as usize;
-        self.update_report(
-            round_idx,
-            elapsed,
-            Duration::ZERO,
-            Duration::ZERO,
-            Duration::ZERO,
-        );
-
-        let res = self.inner.add_round(round);
-        self.last_resume.set(Instant::now());
-        res
+        self.inner.add_round(round)
     }
 
     fn finish_setup(self) -> Self::Exec {
-        let elapsed = self.last_resume.get().elapsed();
-        if elapsed != Duration::ZERO {
-            // Attribute setup completion time to round 0
-            self.update_report(0, elapsed, Duration::ZERO, Duration::ZERO, Duration::ZERO);
-        }
-
         PerfProfiler {
             inner: self.inner.finish_setup(),
-            report: self.report,
-            last_resume: Cell::new(Instant::now()),
+            events: self.events,
+            start_time: self.start_time,
         }
     }
 }
@@ -134,71 +117,60 @@ where
         R: RoundInfo,
         Self::Msg: RoundMsg<R::Msg>,
     {
-        let comp_time = self.last_resume.get().elapsed();
-
-        let io_start = Instant::now();
+        let started = Instant::now();
         let result = self.inner.complete(round).await;
-        let io_time = io_start.elapsed();
+        let finished = Instant::now();
 
-        let round_idx = <Self::Msg as RoundMsg<R::Msg>>::ROUND as usize;
-        self.update_report(
-            round_idx,
-            comp_time,
-            Duration::ZERO,
-            io_time,
-            Duration::ZERO,
-        );
+        let round_idx = <Self::Msg as RoundMsg<R::Msg>>::ROUND;
+        self.events.lock().unwrap().push(Event::RecvMsgs {
+            round: round_idx,
+            started,
+            finished,
+        });
 
-        self.last_resume.set(Instant::now());
         result
     }
 
     async fn send(&mut self, msg: Outgoing<Self::Msg>) -> Result<(), Self::SendErr> {
-        let comp_time = self.last_resume.get().elapsed();
-        let round_idx = msg.msg.round() as usize;
-
-        let io_start = Instant::now();
+        let round_idx = msg.msg.round();
+        let started = Instant::now();
         let result = self.inner.send(msg).await;
-        let io_time = io_start.elapsed();
+        let finished = Instant::now();
 
-        self.update_report(
-            round_idx,
-            comp_time,
-            io_time,
-            Duration::ZERO,
-            Duration::ZERO,
-        );
+        self.events.lock().unwrap().push(Event::SendMsg {
+            round: round_idx,
+            started,
+            finished,
+        });
 
-        self.last_resume.set(Instant::now());
         result
     }
 
     fn send_many(self) -> Self::SendMany {
         ProfilerSendMany {
             inner: self.inner.send_many(),
-            report: self.report,
-            last_resume: self.last_resume,
+            events: self.events,
+            start_time: self.start_time,
         }
     }
 
     async fn yield_now(&self) {
-        let comp_time = self.last_resume.get().elapsed();
-
-        let start = Instant::now();
+        let started = Instant::now();
         self.inner.yield_now().await;
-        let yield_time = start.elapsed();
+        let finished = Instant::now();
 
-        // Attribute yield to round 0
-        self.update_report(0, comp_time, Duration::ZERO, Duration::ZERO, yield_time);
-        self.last_resume.set(Instant::now());
+        self.events
+            .lock()
+            .unwrap()
+            .push(Event::Yielded { started, finished });
     }
 }
 
 /// A wrapper around [`SendMany`] that measures performance.
 pub struct ProfilerSendMany<S> {
     inner: S,
-    report: RefCell<PerfReport>,
-    last_resume: Cell<Instant>,
+    events: Arc<Mutex<Vec<Event>>>,
+    start_time: Instant,
 }
 
 impl<S: SendMany> SendMany for ProfilerSendMany<S>
@@ -210,41 +182,27 @@ where
     type SendErr = S::SendErr;
 
     async fn send(&mut self, msg: Outgoing<S::Msg>) -> Result<(), S::SendErr> {
-        let comp_time = self.last_resume.get().elapsed();
-        let round_idx = msg.msg.round() as usize;
-
-        let io_start = Instant::now();
+        let round_idx = msg.msg.round();
+        let started = Instant::now();
         let result = self.inner.send(msg).await;
-        let io_time = io_start.elapsed();
+        let finished = Instant::now();
 
-        self.report.borrow_mut().apply_stats(
-            round_idx,
-            comp_time,
-            io_time,
-            Duration::ZERO,
-            Duration::ZERO,
-        );
+        self.events.lock().unwrap().push(Event::SendMsg {
+            round: round_idx,
+            started,
+            finished,
+        });
 
-        self.last_resume.set(Instant::now());
         result
     }
 
     async fn flush(self) -> Result<Self::Exec, S::SendErr> {
-        let comp_time = self.last_resume.get().elapsed();
-
-        let io_start = Instant::now();
         let result = self.inner.flush().await;
-        let io_time = io_start.elapsed();
-
-        // Attribute flush to round 0
-        self.report
-            .borrow_mut()
-            .apply_stats(0, comp_time, io_time, Duration::ZERO, Duration::ZERO);
 
         Ok(PerfProfiler {
             inner: result?,
-            report: self.report,
-            last_resume: Cell::new(Instant::now()),
+            events: self.events,
+            start_time: self.start_time,
         })
     }
 }

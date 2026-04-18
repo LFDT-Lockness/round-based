@@ -1,6 +1,62 @@
 use std::fmt;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::vec::Vec;
+
+/// An event captured during MPC execution.
+#[derive(Debug, Clone)]
+pub enum Event {
+    /// Sent a message.
+    SendMsg {
+        /// Number of the round.
+        round: u16,
+        /// Time when `.send().await` was called.
+        started: Instant,
+        /// Time when `.send().await` has returned.
+        finished: Instant,
+    },
+    /// Received messages (completed a round).
+    RecvMsgs {
+        /// Number of the round.
+        round: u16,
+        /// Time when `.complete().await` was called.
+        started: Instant,
+        /// Time when `.complete().await` has returned.
+        finished: Instant,
+    },
+    /// Yielded to the scheduler.
+    Yielded {
+        /// Time when `.yield_now().await` was called.
+        started: Instant,
+        /// Time when `.yield_now().await` has returned.
+        finished: Instant,
+    },
+}
+
+impl Event {
+    /// Returns the round number associated with the event.
+    pub fn round(&self) -> u16 {
+        match self {
+            Event::SendMsg { round, .. } => *round,
+            Event::RecvMsgs { round, .. } => *round,
+            Event::Yielded { .. } => 0, // Global
+        }
+    }
+
+    /// Returns the duration of the event.
+    pub fn duration(&self) -> Duration {
+        match self {
+            Event::SendMsg {
+                started, finished, ..
+            } => *finished - *started,
+            Event::RecvMsgs {
+                started, finished, ..
+            } => *finished - *started,
+            Event::Yielded {
+                started, finished, ..
+            } => *finished - *started,
+        }
+    }
+}
 
 /// Statistics for a single round of an MPC protocol.
 #[derive(Debug, Clone, Default)]
@@ -25,11 +81,41 @@ pub struct PerfReport {
 }
 
 impl PerfReport {
-    /// Applies new statistics to the report.
-    ///
-    /// If an entry for the same round already exists, the statistics are added to it.
-    /// Otherwise, a new entry is created.
-    pub fn apply_stats(
+    /// Builds a report from a sequence of events.
+    pub fn from_events(start_time: Instant, end_time: Instant, events: Vec<Event>) -> Self {
+        let mut report = Self::default();
+        let mut last_finished = start_time;
+
+        for event in events {
+            // Computation is the gap since the last event finished
+            let computation = event.started().duration_since(last_finished);
+            let round = event.round() as usize;
+
+            let (sent, recv, yielded) = match &event {
+                Event::SendMsg { .. } => (event.duration(), Duration::ZERO, Duration::ZERO),
+                Event::RecvMsgs { .. } => (Duration::ZERO, event.duration(), Duration::ZERO),
+                Event::Yielded { .. } => (Duration::ZERO, Duration::ZERO, event.duration()),
+            };
+
+            report.apply_stats(round, computation, sent, recv, yielded);
+            last_finished = event.finished();
+        }
+
+        // Add trailing computation
+        if end_time > last_finished {
+            report.apply_stats(
+                0,
+                end_time - last_finished,
+                Duration::ZERO,
+                Duration::ZERO,
+                Duration::ZERO,
+            );
+        }
+
+        report
+    }
+
+    fn apply_stats(
         &mut self,
         round: usize,
         computation: Duration,
@@ -57,30 +143,42 @@ impl PerfReport {
     pub fn total_computation(&self) -> Duration {
         self.rounds.iter().map(|r| r.computation_time).sum()
     }
-
     /// Calculates the total I/O time spent on sending across all rounds.
     pub fn total_sent_io(&self) -> Duration {
         self.rounds.iter().map(|r| r.sent_io_time).sum()
     }
-
     /// Calculates the total I/O time spent on receiving across all rounds.
     pub fn total_recv_io(&self) -> Duration {
         self.rounds.iter().map(|r| r.recv_io_time).sum()
     }
-
     /// Calculates the total I/O time spent on yielding across all rounds.
     pub fn total_yield(&self) -> Duration {
         self.rounds.iter().map(|r| r.yield_time).sum()
     }
-
     /// Calculates the total I/O time across all rounds (send + recv + yield).
     pub fn total_io(&self) -> Duration {
         self.total_sent_io() + self.total_recv_io() + self.total_yield()
     }
-
     /// Calculates the total execution time (computation + I/O).
     pub fn total_time(&self) -> Duration {
         self.total_computation() + self.total_io()
+    }
+}
+
+impl Event {
+    fn started(&self) -> Instant {
+        match self {
+            Event::SendMsg { started, .. } => *started,
+            Event::RecvMsgs { started, .. } => *started,
+            Event::Yielded { started, .. } => *started,
+        }
+    }
+    fn finished(&self) -> Instant {
+        match self {
+            Event::SendMsg { finished, .. } => *finished,
+            Event::RecvMsgs { finished, .. } => *finished,
+            Event::Yielded { finished, .. } => *finished,
+        }
     }
 }
 

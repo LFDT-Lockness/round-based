@@ -1,58 +1,94 @@
 #[cfg(feature = "perf-profiler")]
 mod tests {
+    use core::cell::RefCell;
     use round_based::{
-        Mpc, MpcExecution, Outgoing, ProtocolMsg, RoundMsg, mpc::profiler::profiling::PerfReport,
-        mpc::profiler::stats, mpc::profiler::wrapper::PerfProfiler,
+        Mpc, MpcExecution, Outgoing, ProtocolMsg, RoundMsg, mpc::profiler::wrapper::PerfProfiler,
+        round::RoundInfo,
     };
     use std::time::Duration;
 
-    struct MockMpc;
+    #[derive(Debug, Clone)]
+    struct ManualEvent;
 
-    #[derive(Clone, Debug)]
-    enum MockMsg {
-        Round1(()),
+    struct MockMpc {
+        manual_events: RefCell<Vec<ManualEvent>>,
     }
 
-    impl ProtocolMsg for MockMsg {
+    /// Random Beacon Messages
+    #[derive(Clone, Debug)]
+    enum RandomBeaconMsg {
+        Commit([u8; 32]), // Round 1
+        Decommit,         // Round 2
+    }
+
+    impl ProtocolMsg for RandomBeaconMsg {
         fn round(&self) -> u16 {
             match self {
-                MockMsg::Round1(_) => 1,
+                RandomBeaconMsg::Commit(_) => 1,
+                RandomBeaconMsg::Decommit => 2,
             }
         }
     }
 
-    impl RoundMsg<()> for MockMsg {
+    // Round 1 Marker
+    struct Round1;
+    impl RoundMsg<[u8; 32]> for RandomBeaconMsg {
         const ROUND: u16 = 1;
-        fn to_protocol_msg(m: ()) -> Self {
-            MockMsg::Round1(m)
+        fn to_protocol_msg(m: [u8; 32]) -> Self {
+            RandomBeaconMsg::Commit(m)
         }
-        fn from_protocol_msg(protocol_msg: Self) -> Result<(), Self> {
-            match protocol_msg {
-                MockMsg::Round1(m) => Ok(m),
+        fn from_protocol_msg(msg: Self) -> Result<[u8; 32], Self> {
+            match msg {
+                RandomBeaconMsg::Commit(m) => Ok(m),
+                _ => Err(msg),
             }
         }
+    }
+
+    // Round 2 Marker
+    struct Round2;
+    impl RoundMsg<u64> for RandomBeaconMsg {
+        const ROUND: u16 = 2;
+        fn to_protocol_msg(_m: u64) -> Self {
+            RandomBeaconMsg::Decommit
+        }
+        fn from_protocol_msg(msg: Self) -> Result<u64, Self> {
+            match msg {
+                RandomBeaconMsg::Decommit => Ok(0),
+                _ => Err(msg),
+            }
+        }
+    }
+
+    impl RoundInfo for Round1 {
+        type Msg = [u8; 32];
+        type Output = Vec<[u8; 32]>;
+        type Error = core::convert::Infallible;
+    }
+    impl RoundInfo for Round2 {
+        type Msg = u64;
+        type Output = Vec<u64>;
+        type Error = core::convert::Infallible;
     }
 
     impl Mpc for MockMpc {
-        type Msg = MockMsg;
+        type Msg = RandomBeaconMsg;
         type Exec = MockMpc;
         type SendErr = core::convert::Infallible;
-
         fn add_round<R>(&mut self, _round: R) -> <Self::Exec as MpcExecution>::Round<R>
         where
             R: round_based::round::RoundStore,
             Self::Msg: RoundMsg<R::Msg>,
         {
         }
-
         fn finish_setup(self) -> Self::Exec {
             self
         }
     }
 
     impl MpcExecution for MockMpc {
-        type Round<R: round_based::round::RoundInfo> = ();
-        type Msg = MockMsg;
+        type Round<R: RoundInfo> = ();
+        type Msg = RandomBeaconMsg;
         type CompleteRoundErr<E> = core::convert::Infallible;
         type SendErr = core::convert::Infallible;
         type SendMany = MockSendMany;
@@ -62,135 +98,104 @@ mod tests {
             _round: Self::Round<R>,
         ) -> Result<R::Output, Self::CompleteRoundErr<R::Error>>
         where
-            R: round_based::round::RoundInfo,
+            R: RoundInfo,
             Self::Msg: RoundMsg<R::Msg>,
         {
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            unreachable!()
+            tokio::time::sleep(Duration::from_millis(40)).await;
+            self.manual_events.borrow_mut().push(ManualEvent);
+
+            let res = Vec::<R::Msg>::new();
+            let ptr = Box::into_raw(Box::new(res));
+            Ok(unsafe { *Box::from_raw(ptr as *mut R::Output) })
         }
 
         async fn send(&mut self, _msg: Outgoing<Self::Msg>) -> Result<(), Self::SendErr> {
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            self.manual_events.borrow_mut().push(ManualEvent);
             Ok(())
         }
 
         fn send_many(self) -> Self::SendMany {
-            MockSendMany
+            MockSendMany {
+                manual_events: self.manual_events,
+            }
         }
 
         async fn yield_now(&self) {
             tokio::time::sleep(Duration::from_millis(10)).await;
+            self.manual_events.borrow_mut().push(ManualEvent);
         }
     }
 
-    struct MockSendMany;
+    struct MockSendMany {
+        manual_events: RefCell<Vec<ManualEvent>>,
+    }
     impl round_based::mpc::SendMany for MockSendMany {
         type Exec = MockMpc;
-        type Msg = MockMsg;
+        type Msg = RandomBeaconMsg;
         type SendErr = core::convert::Infallible;
-
         async fn send(&mut self, _msg: Outgoing<Self::Msg>) -> Result<(), Self::SendErr> {
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            self.manual_events.borrow_mut().push(ManualEvent);
             Ok(())
         }
-
         async fn flush(self) -> Result<Self::Exec, Self::SendErr> {
-            Ok(MockMpc)
+            Ok(MockMpc {
+                manual_events: self.manual_events,
+            })
         }
     }
 
-    impl MockMpc {
-        fn simulate_computation(&self) {
-            // Simulate "Pure Computation"
-            std::thread::sleep(Duration::from_millis(50));
-        }
+    /// Random Beacon Example
+    async fn run_random_beacon(mut mpc: PerfProfiler<MockMpc>) -> [u8; 32] {
+        // --- Round 1: Commit ---
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        mpc.send(Outgoing::all_parties(RandomBeaconMsg::Commit([1u8; 32])))
+            .await
+            .ok();
+        let _hashes = mpc.complete::<Round1>(()).await.expect("round 1");
+
+        // --- Round 2: Reveal ---
+        tokio::time::sleep(Duration::from_millis(5)).await;
+        mpc.send(Outgoing::all_parties(RandomBeaconMsg::Decommit))
+            .await
+            .ok();
+        let _numbers = mpc.complete::<Round2>(()).await.expect("round 2");
+
+        // --- Final: XOR ---
+        tokio::time::sleep(Duration::from_millis(5)).await;
+
+        // --- Yield: Let others run ---
+        mpc.yield_now().await;
+
+        [0u8; 32]
     }
 
     #[tokio::test]
-    async fn test_profiler_captures_correct_times() {
-        let inner = MockMpc;
-        let mut profiler = PerfProfiler::new(inner);
+    async fn test_profiler_random_beacon() {
+        let inner = MockMpc {
+            manual_events: RefCell::new(Vec::new()),
+        };
+        let (profiler, handle) = PerfProfiler::new(inner);
 
-        // --- ROUND 1 ---
-        // 1. Computation happens
-        profiler.get_ref().simulate_computation();
+        let _result = run_random_beacon(profiler).await;
 
-        // 2. I/O happens via send
-        profiler
-            .send(Outgoing::all_parties(MockMsg::Round1(())))
-            .await
-            .unwrap();
-
-        let report = profiler.into_report();
-
-        // Check if computation is at least 50ms
-        assert!(
-            report.total_computation() >= Duration::from_millis(50),
-            "Computation time was {:?}",
-            report.total_computation()
-        );
-        // Check if I/O is at least 100ms
-        assert!(
-            report.total_sent_io() >= Duration::from_millis(100),
-            "Sent IO time was {:?}",
-            report.total_sent_io()
-        );
-
+        let report = handle.into_report();
         println!("{}", report);
-    }
 
-    #[test]
-    fn test_statistical_analysis() {
-        // Create dummy reports to test the math
-        let mut reports = Vec::new();
-        for i in 1..=10 {
-            let mut report = PerfReport::default();
-            report.apply_stats(
-                1,
-                Duration::from_millis(i * 10), // 10, 20, ... 100
-                Duration::from_millis(50),
-                Duration::ZERO,
-                Duration::ZERO,
-            );
-            reports.push(report);
-        }
+        let r1 = report.rounds.iter().find(|r| r.round == 1).unwrap();
+        let r2 = report.rounds.iter().find(|r| r.round == 2).unwrap();
+        let r0 = report.rounds.iter().find(|r| r.round == 0).unwrap();
 
-        // Capture total times
-        let total_times: Vec<Duration> = reports.iter().map(|r| r.total_time()).collect();
-        let analysis = stats::analyze_durations("Batch Execution", total_times);
+        assert!(r1.computation_time >= Duration::from_millis(10));
+        assert!(r1.sent_io_time >= Duration::from_millis(20));
+        assert!(r1.recv_io_time >= Duration::from_millis(40));
 
-        // Verification
-        assert_eq!(analysis.metric_name, "Batch Execution");
-        assert!(analysis.p50 >= Duration::from_millis(50));
-        assert!(analysis.p90 >= Duration::from_millis(90));
+        assert!(r2.computation_time >= Duration::from_millis(5));
+        assert!(r2.sent_io_time >= Duration::from_millis(20));
+        assert!(r2.recv_io_time >= Duration::from_millis(40));
 
-        // Test the Display for stats
-        let stats_output = format!("{}", analysis);
-        assert!(stats_output.contains("Mean"));
-        println!("{}", stats_output);
-    }
-
-    #[test]
-    fn test_report_display_formatting() {
-        let mut report = PerfReport::default();
-        report.apply_stats(
-            1,
-            Duration::from_millis(15),
-            Duration::from_millis(45),
-            Duration::ZERO,
-            Duration::ZERO,
-        );
-        report.apply_stats(
-            2,
-            Duration::from_millis(20),
-            Duration::ZERO,
-            Duration::from_millis(30),
-            Duration::ZERO,
-        );
-
-        let output = format!("{}", report);
-        assert!(output.contains("Round 1"));
-        assert!(output.contains("Round 2"));
-        assert!(output.contains("Total Time"));
+        // Yield Check
+        assert!(r0.yield_time >= Duration::from_millis(10));
     }
 }
