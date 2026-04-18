@@ -28,7 +28,7 @@ impl std::fmt::Display for AggregatedStats {
         // Table-like formatting: {:<N} left-aligns the value and pads it to N characters for a clean grid
         write!(
             f,
-            "{:<20} | Mean: {:<10} | Dev: {:<10} | p50: {:<10} | p75: {:<10} | p90: {:<10}",
+            "{:<20} | {:<12} | {:<12} | {:<12} | {:<12} | {:<12}",
             self.metric_name,
             format!("{:?}", self.mean),
             format!("{:?}", self.std_dev),
@@ -83,16 +83,39 @@ pub fn analyze_durations(name: &str, mut durations: Vec<Duration>) -> Aggregated
     }
 }
 
-/// Helper to consume multiple reports and print aggregated analytics
+/// Helper to consume multiple reports and print aggregated analytics for all metrics.
 pub fn analyze_reports(reports: &[PerfReport]) {
-    // Here you would extract vectors of total_computation, total_io, etc.
-    // across all reports and pass them to `analyze_durations`.
-
-    let mut total_times = Vec::with_capacity(reports.len());
-    for report in reports {
-        total_times.push(report.total_time());
+    if reports.is_empty() {
+        println!("No reports to analyze.");
+        return;
     }
 
-    let stats = analyze_durations("Total Execution Time", total_times);
-    println!("{}", stats);
+    let mut total_times = Vec::with_capacity(reports.len());
+    let mut comp_times = Vec::with_capacity(reports.len());
+    let mut sent_io_times = Vec::with_capacity(reports.len());
+    let mut recv_io_times = Vec::with_capacity(reports.len());
+    let mut yield_times = Vec::with_capacity(reports.len());
+
+    for report in reports {
+        total_times.push(report.total_time());
+        comp_times.push(report.total_computation());
+        sent_io_times.push(report.total_sent_io());
+        recv_io_times.push(report.total_recv_io());
+        yield_times.push(report.total_yield());
+    }
+
+    println!("\n=== MPC Execution Analytics ({} runs) ===", reports.len());
+    println!(
+        "{:<20} | {:<12} | {:<12} | {:<12} | {:<12} | {:<12}",
+        "Metric", "Mean", "Std Dev", "p50", "p75", "p90"
+    );
+    println!("{}", "-".repeat(90));
+    println!("{}", analyze_durations("Total Time", total_times));
+    println!("{}", analyze_durations("Computation", comp_times));
+    println!("{}", analyze_durations("Sent I/O", sent_io_times));
+    println!("{}", analyze_durations("Recv I/O", recv_io_times));
+    println!("{}", analyze_durations("Yield", yield_times));
+    println!(
+        "========================================================================================\n"
+    );
 }

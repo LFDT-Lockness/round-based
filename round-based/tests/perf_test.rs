@@ -2,8 +2,8 @@
 mod tests {
     use core::cell::RefCell;
     use round_based::{
-        Mpc, MpcExecution, Outgoing, ProtocolMsg, RoundMsg, mpc::profiler::wrapper::PerfProfiler,
-        round::RoundInfo,
+        Mpc, MpcExecution, Outgoing, ProtocolMsg, RoundMsg, mpc::SendMany, mpc::profiler::stats,
+        mpc::profiler::wrapper::PerfProfiler, round::RoundInfo,
     };
     use std::time::Duration;
 
@@ -117,7 +117,7 @@ mod tests {
 
         fn send_many(self) -> Self::SendMany {
             MockSendMany {
-                manual_events: self.manual_events,
+                manual_events: self.manual_events.clone(),
             }
         }
 
@@ -130,7 +130,7 @@ mod tests {
     struct MockSendMany {
         manual_events: RefCell<Vec<ManualEvent>>,
     }
-    impl round_based::mpc::SendMany for MockSendMany {
+    impl SendMany for MockSendMany {
         type Exec = MockMpc;
         type Msg = RandomBeaconMsg;
         type SendErr = core::convert::Infallible;
@@ -197,5 +197,24 @@ mod tests {
 
         // Yield Check
         assert!(r0.yield_time >= Duration::from_millis(10));
+    }
+
+    #[tokio::test]
+    async fn test_profiler_statistics() {
+        let mut reports = Vec::new();
+
+        // Run the protocol 5 times and collect reports
+        for _ in 0..5 {
+            let inner = MockMpc {
+                manual_events: RefCell::new(Vec::new()),
+            };
+            let (profiler, handle) = PerfProfiler::new(inner);
+
+            let _result = run_random_beacon(profiler).await;
+            reports.push(handle.into_report());
+        }
+
+        // Analyze reports and print aggregated analytics
+        stats::analyze_reports(&reports);
     }
 }
