@@ -116,7 +116,7 @@ impl<M> core::fmt::Debug for SharedState<M> {
             .field("incoming_msg_present", &self.incoming_msg.is_some())
             .field("outgoing_msg_present", &self.outgoing_msg.is_some())
             .field("wants_recv_msg", &self.wants_recv_msg)
-            .field("wants_recv_msg", &self.wants_recv_msg)
+            .field("wants_send_msg", &self.wants_send_msg)
             .field("yielded", &self.yielded)
             .finish()
     }
