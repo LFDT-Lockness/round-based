@@ -69,4 +69,4 @@ it following the procedure described in [SECURITY.md](./SECURITY.md).
 
 Feel free to reach out to us [in Discord] as well.
 
-[in Discord]: https://discordapp.com/channels/905194001349627914/1285268686147424388
+[in Discord]: https://discord.com/invite/hyperledger
