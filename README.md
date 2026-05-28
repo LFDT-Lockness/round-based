@@ -2,6 +2,7 @@
 [![Docs](https://docs.rs/round-based/badge.svg)](https://docs.rs/round-based)
 [![Crates io](https://img.shields.io/crates/v/round-based.svg)](https://crates.io/crates/round-based)
 [![Discord](https://img.shields.io/discord/905194001349627914?logo=discord&logoColor=ffffff&label=Discord)](https://discordapp.com/channels/905194001349627914/1285268686147424388)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/LFDT-Lockness/round-based/badge)](https://scorecard.dev/viewer/?uri=github.com/LFDT-Lockness/round-based)
 
 An MPC framework that unifies and simplifies the way of developing and working with
 multiparty protocols (e.g. threshold signing, random beacons, etc.).
