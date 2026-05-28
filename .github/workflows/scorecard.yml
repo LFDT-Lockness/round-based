@@ -8,7 +8,7 @@ on:
   schedule:
     - cron: '27 4 * * 2'
   push:
-    branches: [ "cggmp24/m" ]
+    branches: [ "m" ]
 
 # Declare default permissions as read only.
 permissions: read-all
