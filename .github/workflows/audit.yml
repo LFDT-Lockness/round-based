@@ -1,4 +1,7 @@
 name: Security audit
+
+permissions:
+  contents: read
 on:
   pull_request:
     branches: [ "*" ]
