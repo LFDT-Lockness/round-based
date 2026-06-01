@@ -18,6 +18,6 @@ hex = "0.4"
 futures = "0.3"
 matches = "0.1"
 rand_chacha = "0.3"
-sha2 = "0.10"
+sha2 = "0.11"
 
 random-generation-protocol = { path = "../examples/random-generation-protocol", features = ["udigest"] }
