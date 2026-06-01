@@ -10,6 +10,6 @@ repository = "https://github.com/LFDT-Lockness/round-based"
 proc-macro = true
 
 [dependencies]
-syn = "1"
+syn = "2"
 quote = "1"
 proc-macro2 = "1"
