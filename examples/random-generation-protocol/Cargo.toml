@@ -28,5 +28,5 @@ round-based = { path = "../../round-based", features = ["derive", "sim", "state-
 tokio = { version = "1.15", features = ["macros", "rt"] }
 hex = "0.4"
 rand_dev = "0.1"
-rand = "0.8"
+rand = "0.9"
 

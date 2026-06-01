@@ -39,7 +39,7 @@ futures = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["macros"] }
 hex = "0.4"
 
-rand = "0.8"
+rand = "0.9"
 rand_dev = "0.1"
 
 anyhow = "1"
