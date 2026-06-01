@@ -13,7 +13,7 @@ anyhow = "1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
-hex-literal = "0.3"
+hex-literal = "1.1"
 hex = "0.4"
 futures = "0.3"
 matches = "0.1"
