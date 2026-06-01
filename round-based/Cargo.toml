@@ -30,7 +30,7 @@ pin-project-lite = "0.2"
 
 # echo broadcast
 digest = { version = "0.10", default-features = false, optional = true }
-udigest = { version = "0.2", default-features = false, features = ["alloc", "digest", "inline-struct"], optional = true }
+udigest = { version = "0.4", default-features = false, features = ["alloc", "digest", "inline-struct"], optional = true }
 
 [dev-dependencies]
 trybuild = "1"
