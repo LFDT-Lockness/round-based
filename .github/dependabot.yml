@@ -2,17 +2,21 @@ version: 2
 updates:
   - package-ecosystem: "cargo"
     directory: "/"
+    # Disable version updates (does not affect security updates according to
+    # the docs)
+    open-pull-requests-limit: 0
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    groups:
-      cargo-minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
+      interval: "yearly" # required field, so set it to whatever
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "quarterly"
+    open-pull-requests-limit: 1
+    # Group all updates into one request
+    groups:
+      all-updates:
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
