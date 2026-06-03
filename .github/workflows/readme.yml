@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
     - name: Install cargo-hakari
-      uses: baptiste0928/cargo-install@77fc781ff2a66b362d815793ec7bd69b50d0e549 #v1
+      uses: baptiste0928/cargo-install@2cfb0024938d23011106cbf127b393bc83fddba1 #v1
       with:
         crate: cargo-readme
     - name: Check that readme matches lib.rs
