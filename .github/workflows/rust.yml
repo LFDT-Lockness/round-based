@@ -15,7 +15,7 @@ jobs:
   check-no-features:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
     - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae #v2
       with:
         cache-on-failure: "true"
@@ -24,7 +24,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
     - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae #v2
       with:
         cache-on-failure: "true"
@@ -33,7 +33,7 @@ jobs:
   check-all-features:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
     - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae #v2
       with:
         cache-on-failure: "true"
@@ -43,7 +43,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
     - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae #v2
       with:
         cache-on-failure: "true"
@@ -53,13 +53,13 @@ jobs:
   check-fmt:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
     - name: Check formatting
       run: cargo fmt --all -- --check
   check-docs:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
     - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae #v2
       with:
         cache-on-failure: "true"
@@ -68,7 +68,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
     - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae #v2
       with:
         cache-on-failure: "true"
@@ -78,7 +78,7 @@ jobs:
   build-wasm-nostd:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
     - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae #v2
       with:
         cache-on-failure: "true"
@@ -91,6 +91,6 @@ jobs:
   check-changelog:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 #v7.0.0
     - name: Check changelogs
       run: ./.github/changelog.sh
