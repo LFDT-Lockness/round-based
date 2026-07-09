@@ -146,6 +146,11 @@ impl<M> Outgoing<M> {
         self.recipient.is_broadcast()
     }
 
+    /// Checks whether it's a reliable broadcast message
+    pub fn is_reliably_broadcasted(&self) -> bool {
+        self.recipient.is_reliable_broadcast()
+    }
+
     /// Checks whether it's p2p message
     pub fn is_p2p(&self) -> bool {
         self.recipient.is_p2p()
