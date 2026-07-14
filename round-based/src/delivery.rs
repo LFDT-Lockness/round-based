@@ -147,7 +147,7 @@ impl<M> Outgoing<M> {
     }
 
     /// Checks whether it's a reliable broadcast message
-    pub fn is_reliably_broadcasted(&self) -> bool {
+    pub fn is_reliable_broadcast(&self) -> bool {
         self.recipient.is_reliable_broadcast()
     }
 
