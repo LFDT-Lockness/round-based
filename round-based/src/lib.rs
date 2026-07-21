@@ -126,12 +126,14 @@
 //! ## Join us in Discord!
 //! Feel free to reach out to us [in Discord](https://discord.com/invite/hyperledger)!
 
+#![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg, doc_cfg_hide))]
 #![warn(unused_crate_dependencies, missing_docs)]
 #![allow(async_fn_in_trait)]
-#![no_std]
 
 extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
 /// Fixes false-positive of `unused_crate_dependencies` lint that only occur in the tests
 #[cfg(test)]

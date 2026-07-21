@@ -36,7 +36,7 @@ udigest = { version = "0.2", default-features = false, features = ["alloc", "dig
 trybuild = "1"
 matches = "0.1"
 futures = { version = "0.3", default-features = false }
-tokio = { version = "1", features = ["macros"] }
+tokio = { version = "1", features = ["macros", "time", "rt"] }
 hex = "0.4"
 
 rand = "0.8"
@@ -48,14 +48,20 @@ sha2 = "0.10"
 
 [features]
 default = []
+perf-profiler = ["std"]
 state-machine = []
 sim = ["state-machine"]
 sim-async = ["sim", "tokio/sync", "tokio-stream", "futures-util/alloc"]
 derive = ["round-based-derive"]
 runtime-tokio = ["tokio"]
+std = []
 
 echo-broadcast = ["dep:digest", "dep:udigest"]
 
 [[test]]
 name = "derive"
 required-features = ["derive"]
+
+[[test]]
+name = "perf_test"
+required-features = ["perf-profiler"]
