@@ -507,7 +507,7 @@ where
     M: Clone + 'static,
     F: Future,
 {
-    run_with_setup(core::iter::repeat(()).take(n.into()), |i, party, ()| {
+    run_with_setup(core::iter::repeat_n((), n.into()), |i, party, ()| {
         party_start(i, party)
     })
 }
