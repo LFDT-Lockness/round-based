@@ -74,13 +74,10 @@ impl<M> RoundInput<M> {
     /// this round. Local party is considered as "non-contributing" if `i >= n`, meaning that it is
     /// not supposed to send messages in this round.
     ///
-    /// ## Panics
-    /// Panics if `n` is zero.
+    /// If number of contributing parties is set to zero `n=0`, the round will accept no messages
+    /// and will be finished from the construction: `wants_more()` returns `false`, and `output()`
+    /// returns `Ok(received_msgs)` with empty list of received messages.
     pub fn new(i: PartyIndex, n: u16, msg_type: MessageType) -> Self {
-        assert_ne!(
-            n, 0,
-            "number of contributing parties in the round has to be more than zero"
-        );
         let mut left_messages = n;
         if i < n {
             left_messages -= 1;
@@ -579,6 +576,33 @@ mod tests {
             };
             let all = me_last.into_iter_including_me(me).collect::<Vec<_>>();
             assert_eq!(all, [1, 2, 3, -10]);
+        }
+    }
+
+    #[test]
+    fn round_with_no_contributing_parties() {
+        let round = RoundInput::<i32>::p2p(3, 0);
+
+        // Ready from the construction
+        assert!(!round.wants_more());
+
+        // Returns empty list of received messages
+        let msgs = round.output().unwrap();
+        assert_eq!(msgs.iter().count(), 0);
+        let expected: &[i32] = &[];
+        assert_eq!(msgs.into_vec_without_me(), expected);
+
+        // Accepts no messages
+        let mut round = RoundInput::<i32>::p2p(3, 0);
+        for sender in 0..=5 {
+            round
+                .add_message(Incoming {
+                    id: 0,
+                    sender,
+                    msg_type: MessageType::P2P,
+                    msg: 67,
+                })
+                .unwrap_err();
         }
     }
 }
