@@ -1,5 +1,13 @@
+## v0.4.2
+* `RoundInput::new(i, n)` accepts `i >= n`. Parties with indexes `>= n` are considered as non-contributing
+  that do not send any messages within that round. [#53]
+
+[#53]: https://github.com/LFDT-Lockness/round-based/pull/53
+
 ## v0.4.1
 * Add methods to MpcParty to change its components [#15]
+
+[#15]: https://github.com/LFDT-Lockness/round-based/pull/15
 
 ## v0.4.0
 * BREAKING: Improve ergonomics of protocol simulation, which is used for writing tests [#14]
