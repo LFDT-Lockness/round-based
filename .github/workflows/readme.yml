@@ -21,7 +21,7 @@ jobs:
         cache-on-failure: "true"
     - name: Install cargo-readme
       run: |
-        cargo install cargo-readme
+        cargo install --version 3.3.1 cargo-readme
     - name: Check that readme matches lib.rs
       run: |
         cp README.md README-copy.md
