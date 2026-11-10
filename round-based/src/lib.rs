@@ -51,6 +51,8 @@
 #![no_std]
 
 extern crate alloc;
+#[cfg(test)]
+extern crate std;
 
 #[doc(no_inline)]
 pub use futures_util::{Sink, SinkExt, Stream, StreamExt};
