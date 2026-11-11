@@ -7,10 +7,17 @@ use crate::{Incoming, MessageType, MsgId, PartyIndex};
 
 use super::MessagesStore;
 
-/// Simple implementation of [MessagesStore] that waits for all parties to send a message
+/// Round of MPC protocol that waits `n` contributing parties to send a message
 ///
-/// Round is considered complete when the store received a message from every party. Note that the
-/// store will ignore all the messages such as `msg.sender == local_party_index`.
+/// Round takes index of local party `i` and number of contributing parties `n` as parameters,
+/// and can be constructed via [`RoundInput::new`] or its aliases: [`RoundInput::p2p`] and
+/// [`RoundInput::broadcast`].
+///
+/// Round is considered complete when the store received a message from every contributing party
+/// `j` in `0..n` (except from party `i`, if it's in range). Receiving any message from non-contributing party
+/// `n..` is hard error and aborts the round.
+///
+/// Note that the store will ignore all messages that come from local party `i`.
 ///
 /// Once round is complete, it outputs [`RoundMsgs`].
 ///
@@ -63,36 +70,40 @@ pub struct RoundMsgs<M> {
 impl<M> RoundInput<M> {
     /// Constructs new messages store
     ///
-    /// Takes index of local party `i` and amount of parties `n`
+    /// Takes index of local party `i` and amount of contributing parties `n` that send messages in
+    /// this round. Local party is considered as "non-contributing" if `i >= n`, meaning that it is
+    /// not supposed to send messages in this round.
     ///
-    /// ## Panics
-    /// Panics if `n` is less than 2 or `i` is not in the range `[0; n)`.
+    /// If number of contributing parties is set to zero `n=0`, the round will accept no messages
+    /// and will be finished from the construction: `wants_more()` returns `false`, and `output()`
+    /// returns `Ok(received_msgs)` with empty list of received messages.
     pub fn new(i: PartyIndex, n: u16, msg_type: MessageType) -> Self {
-        assert!(n >= 2);
-        assert!(i < n);
-
+        let mut left_messages = n;
+        if i < n {
+            left_messages -= 1;
+        }
         Self {
             i,
             n,
-            messages_ids: vec![0; usize::from(n) - 1],
+            messages_ids: vec![0; usize::from(left_messages)],
             messages: iter::repeat_with(|| None)
-                .take(usize::from(n) - 1)
+                .take(usize::from(left_messages))
                 .collect(),
-            left_messages: n - 1,
+            left_messages,
             expected_msg_type: msg_type,
         }
     }
 
     /// Construct a new store for broadcast messages
     ///
-    /// The same as `RoundInput::new(i, n, MessageType::Broadcast)`
+    /// The same as [`RoundInput::new(i, n, MessageType::Broadcast)`](RoundInput::new)
     pub fn broadcast(i: PartyIndex, n: u16) -> Self {
         Self::new(i, n, MessageType::Broadcast)
     }
 
     /// Construct a new store for p2p messages
     ///
-    /// The same as `RoundInput::new(i, n, MessageType::P2P)`
+    /// The same as [`RoundInput::new(i, n, MessageType::P2P)`](RoundInput::new)
     pub fn p2p(i: PartyIndex, n: u16) -> Self {
         Self::new(i, n, MessageType::P2P)
     }
@@ -116,6 +127,13 @@ where
                 msg_id: msg.id,
                 expected: self.expected_msg_type,
                 actual: msg.msg_type,
+            });
+        }
+        if msg.sender >= self.n {
+            return Err(RoundInputError::SenderIndexOutOfRange {
+                msg_id: msg.id,
+                sender: msg.sender,
+                n: self.n,
             });
         }
         if msg.sender == self.i {
@@ -166,20 +184,32 @@ where
 }
 
 impl<M> RoundMsgs<M> {
-    /// Returns vec of `n-1` received messages
+    /// Returns list of received messages
     ///
-    /// Messages appear in the list in ascending order of sender index. E.g. for n=4 and local party index i=2,
-    /// the list would look like: `[{msg from i=0}, {msg from i=1}, {msg from i=3}]`.
+    /// Messages appear in the list in ascending order of sender index. For instance, for number of
+    /// contributing parties `n=4` and local party index `i=2`, the list would look like: `[{msg from
+    /// party 0}, {msg from party 1}, {msg from party 3}]`.
     pub fn into_vec_without_me(self) -> Vec<M> {
         self.messages
     }
 
     /// Returns vec of received messages plus party's own message
     ///
-    /// Similar to `into_vec_without_me`, but inserts `my_msg` at position `i` in resulting list. Thus, i-th
-    /// message in the list was received from i-th party.
+    /// Similar to `into_vec_without_me`, but inserts `my_msg` into output vector.
+    ///
+    /// Behavior is different depending on `i` and `n` provided at the round construction in
+    /// [`RoundInput::new()`]:
+    /// * `i < n`, then `my_msg` is inserted at position `i` in resulting list. Thus, i-th message in the
+    ///   list was received from i-th party.
+    /// * Otherwise, `my_msg` is appended to the list. Thus, i-th message in the list was received
+    ///   from i-th party, except for the last message in the list, which corresponds to our own
+    ///   message.
     pub fn into_vec_including_me(mut self, my_msg: M) -> Vec<M> {
-        self.messages.insert(usize::from(self.i), my_msg);
+        if usize::from(self.i) < self.messages.len() {
+            self.messages.insert(usize::from(self.i), my_msg);
+        } else {
+            self.messages.push(my_msg);
+        }
         self.messages
     }
 
@@ -190,8 +220,7 @@ impl<M> RoundMsgs<M> {
 
     /// Returns iterator over received messages plus party's own message
     ///
-    /// Similar to [`.iter()`](Self::iter), but inserts `my_msg` at position `i`. Thus, i-th message in the
-    /// iterator is the message received from party `i`.
+    /// Order of the messages is the same as in [`RoundMsgs::into_vec_including_me`]
     pub fn iter_including_me<'m>(&'m self, my_msg: &'m M) -> impl Iterator<Item = &'m M> {
         self.messages
             .iter()
@@ -201,6 +230,8 @@ impl<M> RoundMsgs<M> {
     }
 
     /// Returns iterator over received messages plus party's own message
+    ///
+    /// Order of the messages is the same as in [`RoundMsgs::into_vec_including_me`]
     pub fn into_iter_including_me(self, my_msg: M) -> impl Iterator<Item = M> {
         struct InsertsAfter<T, It> {
             offset: usize,
@@ -222,7 +253,7 @@ impl<M> RoundMsgs<M> {
             }
         }
         InsertsAfter {
-            offset: usize::from(self.i),
+            offset: usize::from(self.i).min(self.messages.len()),
             inner: self.messages.into_iter(),
             item: Some(my_msg),
         }
@@ -307,108 +338,138 @@ mod tests {
 
     #[test]
     fn store_outputs_received_messages() {
-        let mut store = RoundInput::<Msg>::new(3, 5, MessageType::P2P);
+        for i in 0..10 {
+            let mut store = RoundInput::<Msg>::new(i, 5, MessageType::P2P);
 
-        let msgs = (0..5)
-            .map(|s| Incoming {
-                id: s.into(),
-                sender: s,
-                msg_type: MessageType::P2P,
-                msg: Msg(10 + s),
-            })
-            .filter(|incoming| incoming.sender != 3)
-            .collect::<Vec<_>>();
+            let msgs = (0..5)
+                .map(|s| Incoming {
+                    id: s.into(),
+                    sender: s,
+                    msg_type: MessageType::P2P,
+                    msg: Msg(10 + s),
+                })
+                .filter(|incoming| incoming.sender != i)
+                .collect::<Vec<_>>();
 
-        for msg in &msgs {
-            assert!(store.wants_more());
-            store.add_message(msg.clone()).unwrap();
+            for msg in &msgs {
+                assert!(store.wants_more());
+                store.add_message(msg.clone()).unwrap();
+            }
+
+            assert!(!store.wants_more());
+            let received = store.output().unwrap();
+
+            // without me
+            let msgs: Vec<_> = msgs.into_iter().map(|msg| msg.msg).collect();
+            assert_eq!(received.clone().into_vec_without_me(), msgs);
+
+            // including me
+            let my_msg = Msg(10 + i);
+            let received = received.into_vec_including_me(my_msg.clone());
+            if i < 5 {
+                let i = usize::from(i);
+                assert_eq!(received[0..i], msgs[0..i]);
+                assert_eq!(received[i], my_msg);
+                assert_eq!(received[i + 1..5], msgs[i..4]);
+            } else {
+                assert_eq!(received[..5], msgs);
+                assert_eq!(received[5], my_msg)
+            }
         }
-
-        assert!(!store.wants_more());
-        let received = store.output().unwrap();
-
-        // without me
-        let msgs: Vec<_> = msgs.into_iter().map(|msg| msg.msg).collect();
-        assert_eq!(received.clone().into_vec_without_me(), msgs);
-
-        // including me
-        let received = received.into_vec_including_me(Msg(13));
-        assert_eq!(received[0..3], msgs[0..3]);
-        assert_eq!(received[3], Msg(13));
-        assert_eq!(received[4..5], msgs[3..4]);
     }
 
     #[test]
     fn store_returns_error_if_sender_index_is_out_of_range() {
-        let mut store = RoundInput::new(3, 5, MessageType::P2P);
-        let error = store
-            .add_message(Incoming {
-                id: 0,
-                sender: 5,
-                msg_type: MessageType::P2P,
-                msg: Msg(123),
-            })
-            .unwrap_err();
-        assert_matches!(
-            error,
-            RoundInputError::SenderIndexOutOfRange { msg_id, sender, n } if msg_id == 0 && sender == 5 && n == 5
-        );
+        for i in 0..10 {
+            std::dbg!(i);
+            let mut store = RoundInput::new(i, 5, MessageType::P2P);
+            let error = store
+                .add_message(Incoming {
+                    id: 0,
+                    sender: 5,
+                    msg_type: MessageType::P2P,
+                    msg: Msg(123),
+                })
+                .unwrap_err();
+            assert_matches!(
+                error,
+                RoundInputError::SenderIndexOutOfRange { msg_id, sender, n } if msg_id == 0 && sender == 5 && n == 5
+            );
+        }
     }
 
     #[test]
     fn store_returns_error_if_incoming_msg_overwrites_already_received_one() {
-        let mut store = RoundInput::new(0, 3, MessageType::P2P);
-        store
-            .add_message(Incoming {
-                id: 0,
-                sender: 1,
-                msg_type: MessageType::P2P,
-                msg: Msg(11),
-            })
-            .unwrap();
-        let error = store
-            .add_message(Incoming {
-                id: 1,
-                sender: 1,
-                msg_type: MessageType::P2P,
-                msg: Msg(112),
-            })
-            .unwrap_err();
-        assert_matches!(error, RoundInputError::AttemptToOverwriteReceivedMsg { msgs_ids, sender } if msgs_ids[0] == 0 && msgs_ids[1] == 1 && sender == 1);
-        store
-            .add_message(Incoming {
-                id: 2,
-                sender: 2,
-                msg_type: MessageType::P2P,
-                msg: Msg(22),
-            })
-            .unwrap();
+        for i in [0, 5] {
+            let mut store = RoundInput::new(i, 3, MessageType::P2P);
+            store
+                .add_message(Incoming {
+                    id: 0,
+                    sender: 1,
+                    msg_type: MessageType::P2P,
+                    msg: Msg(11),
+                })
+                .unwrap();
+            let error = store
+                .add_message(Incoming {
+                    id: 1,
+                    sender: 1,
+                    msg_type: MessageType::P2P,
+                    msg: Msg(112),
+                })
+                .unwrap_err();
+            assert_matches!(error, RoundInputError::AttemptToOverwriteReceivedMsg { msgs_ids, sender } if msgs_ids[0] == 0 && msgs_ids[1] == 1 && sender == 1);
+            store
+                .add_message(Incoming {
+                    id: 2,
+                    sender: 2,
+                    msg_type: MessageType::P2P,
+                    msg: Msg(22),
+                })
+                .unwrap();
+            if i != 0 {
+                store
+                    .add_message(Incoming {
+                        id: 3,
+                        sender: 0,
+                        msg_type: MessageType::P2P,
+                        msg: Msg(33),
+                    })
+                    .unwrap();
+            }
 
-        let output = store.output().unwrap().into_vec_without_me();
-        assert_eq!(output, [Msg(11), Msg(22)]);
+            let output = store.output().unwrap().into_vec_without_me();
+            if i == 0 {
+                assert_eq!(output, [Msg(11), Msg(22)]);
+            } else {
+                assert_eq!(output, [Msg(33), Msg(11), Msg(22)]);
+            }
+        }
     }
 
     #[test]
     fn store_returns_error_if_tried_to_output_before_receiving_enough_messages() {
-        let mut store = RoundInput::<Msg>::new(3, 5, MessageType::P2P);
+        for i in [3, 10] {
+            let mut store = RoundInput::<Msg>::new(i, 5, MessageType::P2P);
 
-        let msgs = (0..5)
-            .map(|s| Incoming {
-                id: s.into(),
-                sender: s,
-                msg_type: MessageType::P2P,
-                msg: Msg(10 + s),
-            })
-            .filter(|incoming| incoming.sender != 3);
+            let msgs = (0..5)
+                .map(|s| Incoming {
+                    id: s.into(),
+                    sender: s,
+                    msg_type: MessageType::P2P,
+                    msg: Msg(10 + s),
+                })
+                .filter(|incoming| incoming.sender != i);
 
-        for msg in msgs {
-            assert!(store.wants_more());
-            store = store.output().unwrap_err();
+            for msg in msgs {
+                assert!(store.wants_more());
+                store = store.output().unwrap_err();
 
-            store.add_message(msg).unwrap();
+                store.add_message(msg).unwrap();
+            }
+
+            let _ = store.output().unwrap();
         }
-
-        let _ = store.output().unwrap();
     }
 
     #[test]
@@ -507,12 +568,41 @@ mod tests {
         let all = me_second.into_iter_including_me(me).collect::<Vec<_>>();
         assert_eq!(all, [1, -10, 2, 3]);
 
-        let me_last = super::RoundMsgs {
-            i: 3,
-            ids: alloc::vec![0, 1, 2],
-            messages: messages.clone(),
-        };
-        let all = me_last.into_iter_including_me(me).collect::<Vec<_>>();
-        assert_eq!(all, [1, 2, 3, -10]);
+        for i in [3, 10] {
+            let me_last = super::RoundMsgs {
+                i,
+                ids: alloc::vec![0, 1, 2],
+                messages: messages.clone(),
+            };
+            let all = me_last.into_iter_including_me(me).collect::<Vec<_>>();
+            assert_eq!(all, [1, 2, 3, -10]);
+        }
+    }
+
+    #[test]
+    fn round_with_no_contributing_parties() {
+        let round = RoundInput::<i32>::p2p(3, 0);
+
+        // Ready from the construction
+        assert!(!round.wants_more());
+
+        // Returns empty list of received messages
+        let msgs = round.output().unwrap();
+        assert_eq!(msgs.iter().count(), 0);
+        let expected: &[i32] = &[];
+        assert_eq!(msgs.into_vec_without_me(), expected);
+
+        // Accepts no messages
+        let mut round = RoundInput::<i32>::p2p(3, 0);
+        for sender in 0..=5 {
+            round
+                .add_message(Incoming {
+                    id: 0,
+                    sender,
+                    msg_type: MessageType::P2P,
+                    msg: 67,
+                })
+                .unwrap_err();
+        }
     }
 }

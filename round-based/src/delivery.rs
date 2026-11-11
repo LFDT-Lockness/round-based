@@ -106,7 +106,7 @@ impl<M> Incoming<M> {
 
     /// Checks whether it's broadcast message
     pub fn is_broadcast(&self) -> bool {
-        matches!(self.msg_type, MessageType::Broadcast { .. })
+        matches!(self.msg_type, MessageType::Broadcast)
     }
 
     /// Checks whether it's p2p message
@@ -187,6 +187,6 @@ impl MessageDestination {
     }
     /// Returns `true` if it's broadcast message
     pub fn is_broadcast(&self) -> bool {
-        matches!(self, MessageDestination::AllParties { .. })
+        matches!(self, MessageDestination::AllParties)
     }
 }
