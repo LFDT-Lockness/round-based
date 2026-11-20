@@ -1,6 +1,6 @@
 //! Buffers of messages for [buffered rounds](super::RoundsRouterBuilder::add_buffered_round)
 
-use alloc::collections::VecDeque;
+use alloc::{collections::VecDeque, vec::Vec};
 use core::convert::Infallible;
 
 use crate::Incoming;
@@ -72,48 +72,65 @@ impl<M: 'static> RoundBuf for RoundBufUnbounded<M> {
     }
 }
 
-/// FIFO buffer that holds at most `capacity` messages
+/// FIFO buffer that accepts at most `limit_per_party` messages from each party
 ///
-/// Receiving a message when the buffer is full is a hard error: protocol can still retrieve
-/// messages that are already buffered, and then the round is aborted with [`RoundBufOverflow`].
+/// Each party can send no more than `limit_per_party` messages during the whole round. If party
+/// sent that many messages, any new message from it will be discarded without reporting any error
+/// to the protocol. The fact of hitting the limit is logged via `tracing::warn`.
+///
+/// Therefore, the buffer never holds more than `parties_n * limit_per_party` messages.
+///
+/// Receiving a message from a party with index `i >= parties_n` is a hard error: the round is
+/// aborted with [`RoundBufBoundedError`].
 ///
 /// ## Example
 /// ```rust
 /// # use round_based::rounds_router::round_buf::{RoundBuf, RoundBufBounded};
 /// # use round_based::{Incoming, MessageType};
-/// let mut buf = RoundBufBounded::<&'static str>::new(1);
+/// let mut buf = RoundBufBounded::<&'static str>::new(2, 1);
 /// buf.add_message(Incoming{
 ///     id: 0,
 ///     sender: 0,
 ///     msg_type: MessageType::Broadcast,
-///     msg: "first message",
+///     msg: "message from party 0",
 /// }).unwrap();
-/// // buffer is full
+/// // Party 0 hit the limit, its messages are silently discarded
 /// buf.add_message(Incoming{
 ///     id: 1,
-///     sender: 2,
+///     sender: 0,
 ///     msg_type: MessageType::Broadcast,
-///     msg: "second message",
-/// }).unwrap_err();
+///     msg: "another message from party 0 that is over the limit",
+/// }).unwrap();
+/// // Messages from other parties are still being accepted
+/// buf.add_message(Incoming{
+///     id: 2,
+///     sender: 1,
+///     msg_type: MessageType::Broadcast,
+///     msg: "message from party 1",
+/// }).unwrap();
 ///
-/// assert_eq!(buf.next_message().unwrap().msg, "first message");
+/// // All received messages in FIFO order, except the discarded ones
+/// assert_eq!(buf.next_message().unwrap().msg, "message from party 0");
+/// assert_eq!(buf.next_message().unwrap().msg, "message from party 1");
 /// assert!(buf.next_message().is_none());
 /// ```
 #[derive(Debug, Clone)]
 pub struct RoundBufBounded<M> {
-    capacity: usize,
+    /// `left_msgs[i]` is amount of messages that can still be accepted from party `i`
+    left_msgs: Vec<usize>,
     messages: VecDeque<Incoming<M>>,
 }
 
 impl<M> RoundBufBounded<M> {
-    /// Constructs an empty buffer that can hold at most `capacity` messages
+    /// Constructs an empty buffer that accepts at most `limit_per_party` messages from each of
+    /// `parties_n` parties
     ///
     /// Every message of the round goes through the buffer, even if it's received when the
-    /// protocol is already waiting for it. Therefore, buffer with `capacity=0` accepts no
-    /// messages.
-    pub fn new(capacity: usize) -> Self {
+    /// protocol is already waiting for it. Therefore, buffer with `limit_per_party=0` accepts
+    /// no messages.
+    pub fn new(parties_n: u16, limit_per_party: usize) -> Self {
         Self {
-            capacity,
+            left_msgs: alloc::vec![limit_per_party; usize::from(parties_n)],
             messages: VecDeque::new(),
         }
     }
@@ -121,15 +138,28 @@ impl<M> RoundBufBounded<M> {
 
 impl<M: 'static> RoundBuf for RoundBufBounded<M> {
     type Msg = M;
-    type Error = RoundBufOverflow;
+    type Error = RoundBufBoundedError;
 
-    fn add_message(&mut self, msg: Incoming<Self::Msg>) -> Result<(), Self::Error> {
-        if self.messages.len() >= self.capacity {
-            return Err(RoundBufOverflow {
-                capacity: self.capacity,
-            });
-        }
-        self.messages.push_back(msg);
+    fn add_message(&mut self, incoming: Incoming<Self::Msg>) -> Result<(), Self::Error> {
+        let parties_n = self.left_msgs.len();
+        let left_msgs = self.left_msgs.get_mut(usize::from(incoming.sender)).ok_or(
+            RoundBufBoundedReason::UnknownSender {
+                i: incoming.sender,
+                n: parties_n,
+            },
+        )?;
+        *left_msgs = match left_msgs.checked_sub(1) {
+            Some(x) => x,
+            None => {
+                tracing::warn!(
+                    sender = incoming.sender,
+                    "party sent too many messages and hit `RoundBufBounded::new(_, limit_per_party)`; \
+                    message is discarded"
+                );
+                return Ok(());
+            }
+        };
+        self.messages.push_back(incoming);
         Ok(())
     }
     fn next_message(&mut self) -> Option<Incoming<Self::Msg>> {
@@ -137,9 +167,16 @@ impl<M: 'static> RoundBuf for RoundBufBounded<M> {
     }
 }
 
-/// Error indicating that [`RoundBufBounded`] received a message when it was full
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("buffer is full: it already holds {capacity} messages")]
-pub struct RoundBufOverflow {
-    capacity: usize,
+/// Error indicating that [`RoundBufBounded`] received a message from unknown party
+///
+/// Note that party sending more messages than allowed is not an error: such messages are
+/// discarded.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct RoundBufBoundedError(#[from] RoundBufBoundedReason);
+
+#[derive(Debug, thiserror::Error)]
+enum RoundBufBoundedReason {
+    #[error("received a message from unknown party i={i} (n={n})")]
+    UnknownSender { i: u16, n: usize },
 }

@@ -64,7 +64,7 @@
 //!
 //! pub struct Msg1 { /* ... */ }
 //!
-//! pub async fn some_mpc_protocol<M>(party: M) -> Result<Output, Error>
+//! pub async fn some_mpc_protocol<M>(party: M, n: u16) -> Result<Output, Error>
 //! where
 //!     M: Mpc<ProtocolMessage = Msg>,
 //! {
@@ -74,7 +74,8 @@
 //!
 //!     // Build `Rounds`
 //!     let mut rounds = RoundsRouter::builder();
-//!     let mut round1 = rounds.add_buffered_round(RoundBufBounded::<Msg1>::new(10));
+//!     // Each of `n` parties can send at most 10 messages in this round
+//!     let mut round1 = rounds.add_buffered_round(RoundBufBounded::<Msg1>::new(n, 10));
 //!     let mut rounds = rounds.listen(incomings);
 //!
 //!     loop {
@@ -1017,14 +1018,39 @@ mod tests {
         ));
     }
 
+    /// Buffer that returns error when it receives more than `capacity` messages
+    struct FailingBuf {
+        capacity: usize,
+        buf: super::round_buf::RoundBufUnbounded<Msg2>,
+    }
+    #[derive(Debug, thiserror::Error)]
+    #[error("buffer is full")]
+    struct BufIsFull;
+
+    impl super::RoundBuf for FailingBuf {
+        type Msg = Msg2;
+        type Error = BufIsFull;
+
+        fn add_message(&mut self, msg: crate::Incoming<Self::Msg>) -> Result<(), Self::Error> {
+            self.capacity = self.capacity.checked_sub(1).ok_or(BufIsFull)?;
+            match self.buf.add_message(msg) {
+                Ok(()) => Ok(()),
+                Err(err) => match err {},
+            }
+        }
+        fn next_message(&mut self) -> Option<crate::Incoming<Self::Msg>> {
+            self.buf.next_message()
+        }
+    }
+
     #[tokio::test]
     async fn buffered_round_outputs_buffered_messages_before_error() {
-        use super::{round_buf::RoundBufBounded, simple_store::RoundInput};
+        use super::{round_buf::RoundBufUnbounded, simple_store::RoundInput};
 
         let incomings: Incomings = alloc::vec![
             Ok(incoming(1, FakeProtocolMsg::R2(Msg2(10)))),
             Ok(incoming(2, FakeProtocolMsg::R2(Msg2(20)))),
-            // buffer overflows
+            // buffer returns error
             Ok(incoming(1, FakeProtocolMsg::R2(Msg2(11)))),
             // ignored as the round is terminated with error
             Ok(incoming(2, FakeProtocolMsg::R2(Msg2(21)))),
@@ -1034,7 +1060,10 @@ mod tests {
 
         let mut rounds = super::RoundsRouter::builder();
         let round1 = rounds.add_round(RoundInput::<Msg1>::broadcast(0, 3));
-        let mut round2 = rounds.add_buffered_round(RoundBufBounded::<Msg2>::new(2));
+        let mut round2 = rounds.add_buffered_round(FailingBuf {
+            capacity: 2,
+            buf: RoundBufUnbounded::new(),
+        });
         let mut rounds = rounds.listen(futures::stream::iter(incomings));
 
         rounds.complete(round1).await.unwrap();
@@ -1052,10 +1081,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn bounded_buffered_round_discards_messages_over_the_limit() {
+        use super::{round_buf::RoundBufBounded, simple_store::RoundInput};
+
+        let incomings: Incomings = alloc::vec![
+            Ok(incoming(1, FakeProtocolMsg::R2(Msg2(10)))),
+            Ok(incoming(1, FakeProtocolMsg::R2(Msg2(11)))),
+            // party 1 hits the limit, its messages are discarded
+            Ok(incoming(1, FakeProtocolMsg::R2(Msg2(12)))),
+            Ok(incoming(1, FakeProtocolMsg::R2(Msg2(13)))),
+            // messages from party 2 are still accepted
+            Ok(incoming(2, FakeProtocolMsg::R2(Msg2(20)))),
+            Ok(incoming(1, FakeProtocolMsg::R1(Msg1))),
+            Ok(incoming(2, FakeProtocolMsg::R1(Msg1))),
+            // limit of party 1 is not restored when its messages are taken out of the buffer
+            Ok(incoming(1, FakeProtocolMsg::R2(Msg2(14)))),
+            Ok(incoming(2, FakeProtocolMsg::R2(Msg2(21)))),
+            // message from unknown party aborts the round
+            Ok(incoming(3, FakeProtocolMsg::R2(Msg2(30)))),
+        ];
+
+        let mut rounds = super::RoundsRouter::builder();
+        let round1 = rounds.add_round(RoundInput::<Msg1>::broadcast(0, 3));
+        let mut round2 = rounds.add_buffered_round(RoundBufBounded::<Msg2>::new(3, 2));
+        let mut rounds = rounds.listen(futures::stream::iter(incomings));
+
+        rounds.complete(round1).await.unwrap();
+
+        for (sender, msg) in [(1, Msg2(10)), (1, Msg2(11)), (2, Msg2(20)), (2, Msg2(21))] {
+            let received = rounds.next_msg_in(&mut round2).await.unwrap();
+            assert_eq!(received.sender, sender);
+            assert_eq!(received.msg, msg);
+        }
+
+        // hitting the limit didn't terminate the round, but message from unknown party did
+        let err = rounds.next_msg_in(&mut round2).await.unwrap_err();
+        let super::ReceiveMsgError::Buffer(err) = err else {
+            panic!("unexpected error: {err}")
+        };
+        assert_eq!(
+            alloc::string::ToString::to_string(&err),
+            "received a message from unknown party 3: only 3 parties are expected"
+        );
+    }
+
+    #[tokio::test]
     async fn dropped_buffered_round_ignores_messages() {
         use super::{round_buf::RoundBufBounded, simple_store::RoundInput};
 
-        // round 2 is closed, so its messages do not overflow the buffer
+        // round 2 is closed, so its messages are not routed to the buffer
         let incomings: Incomings = alloc::vec![
             Ok(incoming(1, FakeProtocolMsg::R2(Msg2(10)))),
             Ok(incoming(2, FakeProtocolMsg::R2(Msg2(20)))),
@@ -1065,7 +1139,7 @@ mod tests {
 
         let mut rounds = super::RoundsRouter::builder();
         let round1 = rounds.add_round(RoundInput::<Msg1>::broadcast(0, 3));
-        let round2 = rounds.add_buffered_round(RoundBufBounded::<Msg2>::new(0));
+        let round2 = rounds.add_buffered_round(RoundBufBounded::<Msg2>::new(3, 0));
         let mut rounds = rounds.listen(futures::stream::iter(incomings));
 
         drop(round2);

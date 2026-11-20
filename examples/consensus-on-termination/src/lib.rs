@@ -97,7 +97,7 @@ where
     //
     // Each party sends at most `n` messages in this round: its own signature, and signatures it
     // relays from other parties
-    let round1_buf = RoundBufBounded::<TerminationMsg>::new(usize::from(n) * usize::from(n));
+    let round1_buf = RoundBufBounded::<TerminationMsg>::new(n, usize::from(n));
     let mut round1 = rounds.add_buffered_round(round1_buf);
     let mut rounds = rounds.listen(incoming);
 
@@ -221,9 +221,44 @@ enum Reason {
 
 #[cfg(test)]
 mod tests {
+    use std::vec::Vec;
+
+    use round_based::state_machine::{ProceedResult, StateMachine, wrap_protocol};
+    use round_based::{Incoming, MessageType};
+
     use rand::Rng;
 
-    use super::consensus_on_termination;
+    use super::{Msg, TerminationMsg, consensus_on_termination};
+
+    const A: u16 = 0;
+    const B: u16 = 1;
+    const C: u16 = 2;
+
+    /// Proceeds the state machine until it either needs one more message or outputs.
+    /// Returns messages that the party sent in the meantime.
+    fn proceed<S: StateMachine<Msg = Msg>>(party: &mut S) -> (Vec<Msg>, Option<S::Output>) {
+        let mut sent = Vec::new();
+        loop {
+            match party.proceed() {
+                ProceedResult::SendMsg(msg) => {
+                    assert!(msg.is_broadcast());
+                    sent.push(msg.msg)
+                }
+                ProceedResult::NeedsOneMoreMessage => return (sent, None),
+                ProceedResult::Yielded => {}
+                ProceedResult::Output(out) => return (sent, Some(out)),
+                ProceedResult::Error(err) => panic!("state machine error: {err}"),
+            }
+        }
+    }
+    fn incoming(sender: u16, msg: &Msg) -> Incoming<Msg> {
+        Incoming {
+            id: 0,
+            sender,
+            msg_type: MessageType::P2P,
+            msg: msg.clone(),
+        }
+    }
 
     #[test]
     fn simulation() {
@@ -249,42 +284,6 @@ mod tests {
     /// must still terminate successfully as `A` relays the confirmation to it.
     #[test]
     fn malicious_party_sends_confirmation_to_one_party() {
-        use round_based::state_machine::{ProceedResult, StateMachine, wrap_protocol};
-        use round_based::{Incoming, MessageType};
-        use std::vec::Vec;
-
-        use super::{Msg, TerminationMsg};
-
-        const A: u16 = 0;
-        const B: u16 = 1;
-        const C: u16 = 2;
-
-        /// Proceeds the state machine until it either needs one more message or outputs.
-        /// Returns messages that the party sent in the meantime.
-        fn proceed<S: StateMachine<Msg = Msg>>(party: &mut S) -> (Vec<Msg>, Option<S::Output>) {
-            let mut sent = Vec::new();
-            loop {
-                match party.proceed() {
-                    ProceedResult::SendMsg(msg) => {
-                        assert!(msg.is_broadcast());
-                        sent.push(msg.msg)
-                    }
-                    ProceedResult::NeedsOneMoreMessage => return (sent, None),
-                    ProceedResult::Yielded => {}
-                    ProceedResult::Output(out) => return (sent, Some(out)),
-                    ProceedResult::Error(err) => panic!("state machine error: {err}"),
-                }
-            }
-        }
-        fn incoming(sender: u16, msg: &Msg) -> Incoming<Msg> {
-            Incoming {
-                id: 0,
-                sender,
-                msg_type: MessageType::P2P,
-                msg: msg.clone(),
-            }
-        }
-
         let mut rng = rand_dev::DevRng::new();
 
         let execution_nonce: [u8; 32] = rng.r#gen();
@@ -336,5 +335,137 @@ mod tests {
         b.received_msg(incoming(A, &a_relayed_c[0])).unwrap();
         let (_b_relayed_c, output) = proceed(&mut b);
         output.expect("B must terminate").unwrap();
+    }
+
+    /// Malicious party `C` floods honest party `A` with more messages than any honest party
+    /// sends. It must not cause `A` to abort: both `A` and `B` terminate successfully.
+    #[test]
+    fn malicious_party_floods_one_party() {
+        let mut rng = rand_dev::DevRng::new();
+
+        let execution_nonce: [u8; 32] = rng.r#gen();
+        let sk = [(); 3].map(|_| eddsa::SigningKey::generate(&mut rng));
+        let pk = sk.each_ref().map(|sk| sk.verifying_key());
+
+        let mut a = wrap_protocol(|party| {
+            consensus_on_termination(party, &execution_nonce, A, &sk[0], &pk)
+        });
+        let mut b = wrap_protocol(|party| {
+            consensus_on_termination(party, &execution_nonce, B, &sk[1], &pk)
+        });
+        // `c` behaves honestly. The test makes it malicious by sending its confirmation to `A`
+        // many times.
+        let mut c = wrap_protocol(|party| {
+            consensus_on_termination(party, &execution_nonce, C, &sk[2], &pk)
+        });
+
+        // Each party starts with sending its own confirmation
+        let (a_confirmation, output) = proceed(&mut a);
+        assert!(output.is_none() && a_confirmation.len() == 1);
+        let (b_confirmation, output) = proceed(&mut b);
+        assert!(output.is_none() && b_confirmation.len() == 1);
+        let (c_confirmation, output) = proceed(&mut c);
+        assert!(output.is_none() && c_confirmation.len() == 1);
+
+        // `C` sends its confirmation to `A` way more times than the limit of messages per party.
+        // `A` relays the confirmation once, and ignores the rest.
+        let mut a_relayed_c = Vec::new();
+        for _ in 0..20 {
+            a.received_msg(incoming(C, &c_confirmation[0])).unwrap();
+            let (sent, output) = proceed(&mut a);
+            assert!(output.is_none(), "A must neither abort nor terminate");
+            a_relayed_c.extend(sent);
+        }
+        assert!(matches!(
+            a_relayed_c[..],
+            [Msg::Termination(TerminationMsg {
+                relayed_from: Some(C),
+                ..
+            })]
+        ));
+
+        // A receives confirmation from B. Now it has all confirmations, so it terminates.
+        a.received_msg(incoming(B, &b_confirmation[0])).unwrap();
+        let (_a_relayed_b, output) = proceed(&mut a);
+        output.expect("A must terminate").unwrap();
+
+        // B receives confirmations of A and C, and terminates as well
+        b.received_msg(incoming(A, &a_confirmation[0])).unwrap();
+        let (_b_relayed_a, output) = proceed(&mut b);
+        assert!(output.is_none());
+        b.received_msg(incoming(C, &c_confirmation[0])).unwrap();
+        let (_b_relayed_c, output) = proceed(&mut b);
+        output.expect("B must terminate").unwrap();
+    }
+
+    /// Malicious party `C` sends invalid messages to honest party `A` until it hits the limit of
+    /// messages per party, then it sends its confirmation to `A` only. `A` discards the
+    /// confirmation, so no one has it: neither `A` nor `B` terminates, and none of them aborts.
+    #[test]
+    fn malicious_party_hits_the_limit_before_sending_confirmation() {
+        let mut rng = rand_dev::DevRng::new();
+
+        let execution_nonce: [u8; 32] = rng.r#gen();
+        let sk = [(); 3].map(|_| eddsa::SigningKey::generate(&mut rng));
+        let pk = sk.each_ref().map(|sk| sk.verifying_key());
+        let n = 3;
+
+        let mut a = wrap_protocol(|party| {
+            consensus_on_termination(party, &execution_nonce, A, &sk[0], &pk)
+        });
+        let mut b = wrap_protocol(|party| {
+            consensus_on_termination(party, &execution_nonce, B, &sk[1], &pk)
+        });
+        // `c` behaves honestly. The test makes it malicious by sending other messages on its
+        // behalf.
+        let mut c = wrap_protocol(|party| {
+            consensus_on_termination(party, &execution_nonce, C, &sk[2], &pk)
+        });
+
+        // Each party starts with sending its own confirmation
+        let (a_confirmation, output) = proceed(&mut a);
+        assert!(output.is_none() && a_confirmation.len() == 1);
+        let (b_confirmation, output) = proceed(&mut b);
+        assert!(output.is_none() && b_confirmation.len() == 1);
+        let (c_confirmation, output) = proceed(&mut c);
+        assert!(output.is_none() && c_confirmation.len() == 1);
+
+        // `C` sends `n` invalid messages to `A`: signature of `B` is not a valid signature of
+        // `C`. `A` ignores them.
+        for _ in 0..n {
+            a.received_msg(incoming(C, &b_confirmation[0])).unwrap();
+            let (sent, output) = proceed(&mut a);
+            assert!(output.is_none(), "A must neither abort nor terminate");
+            assert!(sent.is_empty());
+        }
+
+        // Now `C` sends a valid confirmation to `A`, but it's over the limit, so `A` discards it
+        // and doesn't relay it to `B`
+        a.received_msg(incoming(C, &c_confirmation[0])).unwrap();
+        let (sent, output) = proceed(&mut a);
+        assert!(output.is_none(), "A must neither abort nor terminate");
+        assert!(sent.is_empty());
+
+        // `A` and `B` exchange confirmations and everything they relayed. Both of them miss
+        // the confirmation of `C`, so they keep waiting for it.
+        a.received_msg(incoming(B, &b_confirmation[0])).unwrap();
+        let (a_relayed_b, output) = proceed(&mut a);
+        assert!(output.is_none(), "A must neither abort nor terminate");
+        assert_eq!(a_relayed_b.len(), 1);
+
+        b.received_msg(incoming(A, &a_confirmation[0])).unwrap();
+        let (b_relayed_a, output) = proceed(&mut b);
+        assert!(output.is_none(), "B must neither abort nor terminate");
+        assert_eq!(b_relayed_a.len(), 1);
+
+        b.received_msg(incoming(A, &a_relayed_b[0])).unwrap();
+        let (sent, output) = proceed(&mut b);
+        assert!(output.is_none(), "B must neither abort nor terminate");
+        assert!(sent.is_empty());
+
+        a.received_msg(incoming(B, &b_relayed_a[0])).unwrap();
+        let (sent, output) = proceed(&mut a);
+        assert!(output.is_none(), "A must neither abort nor terminate");
+        assert!(sent.is_empty());
     }
 }
