@@ -1,6 +1,6 @@
 [package]
 name = "round-based"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Driver for MPC protocols"
@@ -18,7 +18,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 phantom-type = { version = "0.3", default-features = false }
-tracing = { version = "0.1", default-features = false }
+tracing = { version = "0.1", default-features = false, features = ["attributes"] }
 thiserror = { version = "2", default-features = false }
 
 round-based-derive = { version = "0.2", optional = true, path = "../round-based-derive" }

@@ -1,3 +1,10 @@
+## v0.4.3
+* Add buffered rounds that can be added via `RoundsRouter::add_buffered_round` [#54] \
+  Messages received in those rounds are buffered. Protocol implementation then processes them
+  one-by-one through `rounds.next_msg_in(buffered_round)`.
+
+[#54]: https://github.com/LFDT-Lockness/round-based/pull/54
+
 ## v0.4.2
 * `RoundInput::new(i, n)` accepts `i >= n`. Parties with indexes `>= n` are considered as non-contributing
   that do not send any messages within that round. [#53]

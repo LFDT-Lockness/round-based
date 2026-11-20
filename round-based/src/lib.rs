@@ -46,7 +46,7 @@
 //! ## Join us in Discord!
 //! Feel free to reach out to us [in Discord](https://discordapp.com/channels/905194001349627914/1285268686147424388)!
 
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg, doc_cfg_hide))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unused_crate_dependencies, missing_docs)]
 #![no_std]
 

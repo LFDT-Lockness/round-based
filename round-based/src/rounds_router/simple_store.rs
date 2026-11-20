@@ -111,6 +111,25 @@ impl<M> RoundInput<M> {
     fn is_expected_type_of_msg(&self, msg_type: MessageType) -> bool {
         self.expected_msg_type == msg_type
     }
+
+    /// Checks if we haven't yet received a message from party with index `sender`
+    ///
+    /// If it returns `true`, it means that this round cannot be finished until a message from the
+    /// `sender` is received. Therefore, [`MessagesStore::wants_more()`] will return `true`, and
+    /// [`MessagesStore::output()`] will return `Err(_)`.
+    pub fn needs_msg_from(&self, sender: PartyIndex) -> bool {
+        if sender == self.i {
+            // we don't need a message from the local party
+            return false;
+        }
+        let index = usize::from(if sender < self.i { sender } else { sender - 1 });
+        self.messages
+            .get(index)
+            // we need a message from party with that index only if it's slot is `None`
+            .map(Option::is_none)
+            // if party index is out of bounds, we don't need a message from it
+            .unwrap_or(false)
+    }
 }
 
 impl<M> MessagesStore for RoundInput<M>

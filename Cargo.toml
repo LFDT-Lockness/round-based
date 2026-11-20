@@ -5,6 +5,7 @@ members = [
     "round-based-tests",
     "round-based-derive",
     "examples/random-generation-protocol",
+    "examples/consensus-on-termination",
 ]
 exclude = [
     "wasm/no_std",
