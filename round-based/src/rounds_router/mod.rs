@@ -1120,8 +1120,8 @@ mod tests {
             panic!("unexpected error: {err}")
         };
         assert_eq!(
-            alloc::string::ToString::to_string(&err),
-            "received a message from unknown party 3: only 3 parties are expected"
+            alloc::format!("{err}"),
+            "received a message from unknown party i=3 (n=3)"
         );
     }
 
