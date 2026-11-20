@@ -105,7 +105,7 @@ use core::{
 
 use futures_util::{Stream, StreamExt};
 use phantom_type::PhantomType;
-use tracing::{debug, error, trace, trace_span, warn, Span};
+use tracing::{error, trace, warn};
 
 use crate::Incoming;
 
@@ -144,7 +144,11 @@ where
     ///
     /// Waits until all messages at specified round are received. Returns received
     /// messages if round is successfully completed, or error otherwise.
-    #[inline(always)]
+    #[tracing::instrument(
+        level = "debug",
+        skip_all,
+        fields(n = <M as RoundMessage<R::Msg>>::ROUND)
+    )]
     pub async fn complete<R>(
         &mut self,
         round: Round<R>,
@@ -153,25 +157,20 @@ where
         R: MessagesStore,
         M: RoundMessage<R::Msg>,
     {
-        let round_number = <M as RoundMessage<R::Msg>>::ROUND;
-        let span = trace_span!("Round", n = round_number);
-        debug!(parent: &span, "pending round to complete");
-
-        match self.complete_with_span(&span, round).await {
+        match self.complete_inner(round).await {
             Ok(output) => {
-                trace!(parent: &span, "round successfully completed");
+                trace!("round successfully completed");
                 Ok(output)
             }
             Err(err) => {
-                error!(parent: &span, %err, "round terminated with error");
+                error!(%err, "round terminated with error");
                 Err(err)
             }
         }
     }
 
-    async fn complete_with_span<R>(
+    async fn complete_inner<R>(
         &mut self,
-        span: &Span,
         _round: Round<R>,
     ) -> Result<R::Output, CompleteRoundError<R::Error, E>>
     where
@@ -190,7 +189,7 @@ where
                 None => return Err(errors::IoError::UnexpectedEof.into()),
             };
             let message_round_n = incoming.msg.round();
-            self.route_message(span, incoming)?;
+            self.route_message(incoming)?;
 
             if pending_round == message_round_n {
                 if let Some(output) = self.retrieve_round_output_if_its_completed::<R>() {
@@ -201,11 +200,7 @@ where
     }
 
     /// Routes incoming message to the round it belongs to
-    fn route_message(
-        &mut self,
-        span: &Span,
-        incoming: Incoming<M>,
-    ) -> Result<(), errors::RoundsMisuse> {
+    fn route_message(&mut self, incoming: Incoming<M>) -> Result<(), errors::RoundsMisuse> {
         let message_round_n = incoming.msg.round();
 
         let message_round_slot = self
@@ -220,7 +215,6 @@ where
             Some(round) => round,
             None => {
                 warn!(
-                    parent: span,
                     n = message_round_n,
                     "got message for the round that was already completed, ignoring it"
                 );
@@ -229,7 +223,6 @@ where
         };
         if message_round.needs_more_messages().no() {
             warn!(
-                parent: span,
                 n = message_round_n,
                 "received message for the round that was already completed, ignoring it"
             );
@@ -249,7 +242,11 @@ where
     /// buffer a message, this method returns the messages that are already buffered, then it
     /// returns [`ReceiveMsgError::Buffer`]. After the error is returned, the round is completed:
     /// its messages are ignored.
-    #[inline(always)]
+    #[tracing::instrument(
+        level = "debug",
+        skip_all,
+        fields(n = <M as RoundMessage<B::Msg>>::ROUND),
+    )]
     pub async fn next_msg_in<B>(
         &mut self,
         _round: &mut BufferedRound<B>,
@@ -258,25 +255,20 @@ where
         B: RoundBuf,
         M: RoundMessage<B::Msg> + 'static,
     {
-        let round_number = <M as RoundMessage<B::Msg>>::ROUND;
-        let span = trace_span!("Round", n = round_number);
-        debug!(parent: &span, "pending next message in the round");
-
-        match self.next_msg_in_with_span::<B>(&span).await {
+        match self.next_msg_in_inner::<B>().await {
             Ok(msg) => {
-                trace!(parent: &span, "buffered message received");
+                trace!("buffered message received");
                 Ok(msg)
             }
             Err(err) => {
-                error!(parent: &span, %err, "buffered round terminated with error");
+                error!(%err, "buffered round terminated with error");
                 Err(err)
             }
         }
     }
 
-    async fn next_msg_in_with_span<B>(
+    async fn next_msg_in_inner<B>(
         &mut self,
-        span: &Span,
     ) -> Result<Incoming<B::Msg>, ReceiveMsgError<B::Error, E>>
     where
         B: RoundBuf,
@@ -292,7 +284,7 @@ where
                 Some(Err(err)) => return Err(errors::IoError::Io(err).into()),
                 None => return Err(errors::IoError::UnexpectedEof.into()),
             };
-            self.route_message(span, incoming)?;
+            self.route_message(incoming)?;
         }
     }
 
